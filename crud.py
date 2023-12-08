@@ -1,13 +1,15 @@
 import os
-from typing import List
 import boto3
 import shutil
+from PIL import Image
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
-from PIL import Image
+
+from typing import List
 from botocore.exceptions import NoCredentialsError
 from sqlalchemy.orm import Session
 from fastapi import File, HTTPException, UploadFile
+
 import models
 
 load_dotenv()
@@ -69,6 +71,21 @@ def add_photo_to_db(db: Session, photo_url: str, photo_name: str, photo_orientat
     return db_photo
 
 
+def convert_to_webp(input_path, output_path):
+    try:
+        # Open the input image
+        with Image.open(input_path) as img:
+            # Save as WebP
+            img.save(output_path, 'WEBP')
+        print(f'Conversion successful. WebP image saved at: {output_path}')
+    except Exception as e:
+        print(f'Error converting image: {e}')
+
+
+def get_webp_file_name(filename: str):
+    return os.path.splitext(filename)[0] + '.webp'
+
+
 def upload_photos(db: Session, files: List[UploadFile] = File(...)):
     db_files = []
     for file in files:
@@ -76,9 +93,13 @@ def upload_photos(db: Session, files: List[UploadFile] = File(...)):
         with NamedTemporaryFile(delete=False) as temp_file:
             shutil.copyfileobj(file.file, temp_file)
             local_file_path = temp_file.name
+            local_webp_path = get_webp_file_name(temp_file.name)
+            convert_to_webp(local_file_path, local_webp_path)
+            webp_name = get_webp_file_name(file.filename)
             photo_orientation = photo_is_horizontal(image_path=local_file_path)
-            photo_url = save_photo_on_bucket(local_file_path, file.filename)
+            photo_url = save_photo_on_bucket(local_webp_path, webp_name)
             os.remove(local_file_path)
+            os.remove(local_webp_path)
             if photo_url is None:
                 raise HTTPException(
                     status_code=500, detail=f"Problem uploading file {file.filename}")
