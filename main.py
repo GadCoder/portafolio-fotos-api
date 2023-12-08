@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from crud import upload_photos, get_all_photos, authenticate_user, delete_photo_from_db
+from crud import upload_photos, get_all_photos, authenticate_user, delete_photo_from_db, fix_photos_orientation
 from database import SessionLocal, engine
 import models
 import schemas
@@ -41,12 +41,12 @@ def get_db():
         db.close()
 
 
-@app.get("/")
+@app.get("/login-page")
 async def root(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
-@app.post("/login/")
+@app.post("/login-user/")
 def login_user(user: Annotated[str, Form()], password: Annotated[str, Form()], request: Request, db: Session = Depends(get_db)):
     user_authenticated = authenticate_user(user=user, password=password)
     if not user_authenticated:
@@ -86,3 +86,8 @@ async def upload_photo(user: Annotated[str, Form()], password: Annotated[str, Fo
 @app.delete("/delete-photo/{photo_id}")
 def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     return delete_photo_from_db(db=db, photo_id=photo_id)
+
+
+@app.post("/fix-photos-orientation/", response_model=List[schemas.Photo])
+def fix_orientation(db: Session = Depends(get_db)):
+    return fix_photos_orientation(db=db)
