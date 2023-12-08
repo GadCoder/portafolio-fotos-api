@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from crud import upload_photos, get_all_photos, authenticate_user, delete_photo_from_db, fix_photos_orientation
+from crud import upload_photos, get_all_photos, authenticate_user, delete_photo_from_db
 from database import SessionLocal, engine
 import models
 import schemas
@@ -88,6 +88,3 @@ def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     return delete_photo_from_db(db=db, photo_id=photo_id)
 
 
-@app.post("/fix-photos-orientation/", response_model=List[schemas.Photo])
-def fix_orientation(db: Session = Depends(get_db)):
-    return fix_photos_orientation(db=db)
