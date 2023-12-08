@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request, Form
 from sqlalchemy.orm import Session
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from crud import upload_photos, get_all_photos, authenticate_user, delete_photo_from_db
 from database import SessionLocal, engine
@@ -11,7 +12,20 @@ from typing import Annotated, List
 models.Base.metadata.create_all(bind=engine)
 
 
+def add_cors(app):
+    origins = ["*"]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["GET"],
+        allow_headers=["*"],
+    )
+
+
 app = FastAPI()
+add_cors(app)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")

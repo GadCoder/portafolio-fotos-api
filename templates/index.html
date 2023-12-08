@@ -102,14 +102,14 @@
     function uploadPhotos() {
       var form = document.getElementById("uploadForm");
       var formData = new FormData(form);
-      url = "/upload-photos/";
+      url = "http://159.112.132.79:8000/upload-photos/";
       fetch(url, {
         method: "POST",
         body: formData,
       });
     }
     function deletePhoto(photoId) {
-      url = "/delete-photo/" + photoId;
+      url = "http://159.112.132.79:8000/delete-photo/" + photoId;
       fetch(url, {
         method: "DELETE", // Use 'POST', 'PUT', 'DELETE', etc., depending on your API
         headers: {
