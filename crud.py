@@ -104,7 +104,7 @@ def upload_photos(db: Session, files: List[UploadFile] = File(...)):
                 raise HTTPException(
                     status_code=500, detail=f"Problem uploading file {file.filename}")
             db_photo = add_photo_to_db(
-                db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=file_name)
+                db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
             db_files.append(db_photo)
     return db_files
 
