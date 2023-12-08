@@ -4,11 +4,12 @@ import shutil
 from PIL import Image, ImageOps
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
-
+import requests
 from typing import List
 from botocore.exceptions import NoCredentialsError
 from sqlalchemy.orm import Session
 from fastapi import File, HTTPException, UploadFile
+from io import BytesIO
 
 import models
 
@@ -78,6 +79,7 @@ def convert_to_webp(input_path, output_path):
     try:
         # Open the input image
         with Image.open(input_path) as img:
+            img = ImageOps.exif_transpose(img)
             # Save as WebP
             img.save(output_path, 'WEBP')
         print(f'Conversion successful. WebP image saved at: {output_path}')
@@ -140,3 +142,42 @@ def authenticate_user(user: str, password: str):
     registered_password = os.getenv("password")
     valid_credentials = user == registered_user and password == registered_password
     return valid_credentials
+
+
+
+def get_photo_in_storage(photo_url: str):
+    response = requests.get(photo_url)
+    response.raise_for_status()  # Check if the request was successful
+    img = Image.open(BytesIO(response.content))
+    return img
+
+
+
+def rotate_photo(photo: models.Photo):
+    try:
+        photo_file = get_photo_in_storage(photo_url=photo.photo_url)
+        rotated_img = photo_file.rotate(90, expand=True)
+        rotated_img.save(photo.name)
+        delete_from_s3(photo.name)
+        save_photo_on_bucket(photo.name, photo.name)
+        os.remove(photo.name)
+        return True
+    except Exception as e:
+        print(f'Error rotating image: {e}')
+        return False
+
+
+def fix_photos_orientation(db: Session):
+    photos = get_all_photos(db=db)
+    rotated_photos = []
+    for photo in photos:
+        saved_photo = get_photo_in_storage(photo.photo_url)
+        saved_photo_width, saved_photo_height = saved_photo.size
+        photo_is_rotated = saved_photo_width > saved_photo_height and not photo.is_horizontal
+        if photo_is_rotated:
+            if rotate_photo(photo):
+                rotated_photos.append(photo)
+            else:
+                raise HTTPException(status_code=501, detail=f"Error rotating photo {photo.name}")
+
+
