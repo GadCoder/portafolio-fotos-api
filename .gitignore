@@ -1,0 +1,4 @@
+**/__pycache__
+venv
+photos.db
+.env
