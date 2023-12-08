@@ -1,7 +1,7 @@
 import os
 import boto3
 import shutil
-from PIL import Image
+from PIL import Image, ImageOps
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
 
@@ -52,10 +52,13 @@ def save_photo_on_bucket(local_file_path, filename):
         return None
 
 
-def photo_is_horizontal(image_path: UploadFile):
+def photo_is_horizontal(image: UploadFile):
     try:
-        with Image.open(image_path) as img:
-            width, height = img.size
+        with Image.open(image) as img:
+            pil = ImageOps.exif_transpose(img)
+            width, height = pil.size
+            print(f"Witdh: {width}")
+            print(f"Height: {height}")
             return width > height
     except Exception as e:
         print(f"Error: {e}")
@@ -89,12 +92,11 @@ def get_webp_file_name(filename: str):
 def upload_photos(db: Session, files: List[UploadFile] = File(...)):
     db_files = []
     for file in files:
-        file_name = file.filename
         with NamedTemporaryFile(delete=False) as temp_file:
             shutil.copyfileobj(file.file, temp_file)
             local_file_path = temp_file.name
-            photo_orientation = photo_is_horizontal(image_path=local_file_path)
             local_webp_path = get_webp_file_name(temp_file.name)
+            photo_orientation = photo_is_horizontal(image=local_file_path)
             convert_to_webp(local_file_path, local_webp_path)
             webp_name = get_webp_file_name(file.filename)
             photo_url = save_photo_on_bucket(local_webp_path, webp_name)
