@@ -1,16 +1,15 @@
 import os
 import boto3
 import shutil
+import piexif
 from PIL import Image, ImageOps
 from tempfile import NamedTemporaryFile
 from dotenv import load_dotenv
-import requests
 from typing import List
 from botocore.exceptions import NoCredentialsError
 from sqlalchemy.orm import Session
 from fastapi import File, HTTPException, UploadFile
 from io import BytesIO
-
 import models
 
 load_dotenv()
@@ -75,20 +74,46 @@ def add_photo_to_db(db: Session, photo_url: str, photo_name: str, photo_orientat
     return db_photo
 
 
-def convert_to_webp(input_path, output_path):
+
+def get_webp_file_name(filename: str):
+    return os.path.splitext(filename)[0] + '.webp'
+
+
+def get_exif_orientation(img: Image):
     try:
-        # Open the input image
+        exif_data = img.info.get('exif')
+        if exif_data:
+            exif_dict = piexif.load(exif_data)
+            orientation = exif_dict.get("0th", {}).get(piexif.ImageIFD.Orientation, None)
+            return orientation
+        else:
+            print("No EXIF data found in the image.")
+            return None
+    except Exception as e:
+        print(f"Error getting EXIF orientation: {e}")
+        return None
+    
+
+def rotate_photo(img: Image):
+    try:
+        rotated_img = img.rotate(90, expand=True)
+        return rotated_img
+    except Exception as e:
+        print(f'Error rotating image: {e}')
+        return None
+
+
+def convert_to_webp(input_path, output_path, is_horizontal):
+    try:
         with Image.open(input_path) as img:
+            exit_orientation = get_exif_orientation(img)
+            if exit_orientation == 8 and not is_horizontal:
+                img = rotate_photo(img=img)
             img = ImageOps.exif_transpose(img)
-            # Save as WebP
             img.save(output_path, 'WEBP')
         print(f'Conversion successful. WebP image saved at: {output_path}')
     except Exception as e:
         print(f'Error converting image: {e}')
-
-
-def get_webp_file_name(filename: str):
-    return os.path.splitext(filename)[0] + '.webp'
 
 
 def upload_photos(db: Session, files: List[UploadFile] = File(...)):
@@ -142,42 +167,4 @@ def authenticate_user(user: str, password: str):
     registered_password = os.getenv("password")
     valid_credentials = user == registered_user and password == registered_password
     return valid_credentials
-
-
-
-def get_photo_in_storage(photo_url: str):
-    response = requests.get(photo_url)
-    response.raise_for_status()  # Check if the request was successful
-    img = Image.open(BytesIO(response.content))
-    return img
-
-
-
-def rotate_photo(photo: models.Photo):
-    try:
-        photo_file = get_photo_in_storage(photo_url=photo.photo_url)
-        rotated_img = photo_file.rotate(90, expand=True)
-        rotated_img.save(photo.name)
-        delete_from_s3(photo.name)
-        save_photo_on_bucket(photo.name, photo.name)
-        os.remove(photo.name)
-        return True
-    except Exception as e:
-        print(f'Error rotating image: {e}')
-        return False
-
-
-def fix_photos_orientation(db: Session):
-    photos = get_all_photos(db=db)
-    rotated_photos = []
-    for photo in photos:
-        saved_photo = get_photo_in_storage(photo.photo_url)
-        saved_photo_width, saved_photo_height = saved_photo.size
-        photo_is_rotated = saved_photo_width > saved_photo_height and not photo.is_horizontal
-        if photo_is_rotated:
-            if rotate_photo(photo):
-                rotated_photos.append(photo)
-            else:
-                raise HTTPException(status_code=501, detail=f"Error rotating photo {photo.name}")
-
 
