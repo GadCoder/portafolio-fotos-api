@@ -128,22 +128,25 @@ def convert_to_webp(input_path, output_path, is_horizontal):
 def upload_photos(db: Session, files: List[UploadFile] = File(...)):
     db_files = []
     for file in files:
-        with NamedTemporaryFile(delete=False) as temp_file:
-            shutil.copyfileobj(file.file, temp_file)
-            local_file_path = temp_file.name
-            local_webp_path = get_webp_file_name(temp_file.name)
-            photo_orientation = photo_is_horizontal(image=local_file_path)
-            convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_orientation)
-            webp_name = get_webp_file_name(file.filename)
-            photo_url = save_photo_on_bucket(local_webp_path, webp_name)
-            os.remove(local_file_path)
-            os.remove(local_webp_path)
-            if photo_url is None:
-                raise HTTPException(
-                    status_code=500, detail=f"Problem uploading file {file.filename}")
-            db_photo = add_photo_to_db(
-                db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
-            db_files.append(db_photo)
+        try:
+            with NamedTemporaryFile(delete=False) as temp_file:
+                shutil.copyfileobj(file.file, temp_file)
+                local_file_path = temp_file.name
+                local_webp_path = get_webp_file_name(temp_file.name)
+                photo_orientation = photo_is_horizontal(image=local_file_path)
+                convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_orientation)
+                webp_name = get_webp_file_name(file.filename)
+                photo_url = save_photo_on_bucket(local_webp_path, webp_name)
+                os.remove(local_file_path)
+                os.remove(local_webp_path)
+                if photo_url is None:
+                    raise HTTPException(
+                        status_code=500, detail=f"Problem uploading file {file.filename}")
+                db_photo = add_photo_to_db(
+                    db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
+                db_files.append(db_photo)
+        except Exception as e:
+            print(f'Error uploading file {file.filename} {e}')
     return db_files
 
 
