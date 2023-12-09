@@ -124,7 +124,7 @@ def upload_photos(db: Session, files: List[UploadFile] = File(...)):
             local_file_path = temp_file.name
             local_webp_path = get_webp_file_name(temp_file.name)
             photo_orientation = photo_is_horizontal(image=local_file_path)
-            convert_to_webp(local_file_path, local_webp_path)
+            convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_orientation)
             webp_name = get_webp_file_name(file.filename)
             photo_url = save_photo_on_bucket(local_webp_path, webp_name)
             os.remove(local_file_path)
