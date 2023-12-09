@@ -108,10 +108,18 @@ def convert_to_webp(input_path, output_path, is_horizontal):
     try:
         with Image.open(input_path) as img:
             exit_orientation = get_exif_orientation(img)
+            image_rotated = False
             if exit_orientation == 8 and not is_horizontal:
                 print("ROTATING")
+                image_rotated = True
                 img = rotate_photo(img=img)
-            img.save(output_path, 'WEBP')
+            if image_rotated:
+                exif_dict = piexif.load(img.info["exif"])
+                exif_dict["0th"][piexif.ImageIFD.Orientation] = 1
+                new_exif_bytes = piexif.dump(exif_dict)
+                img.save(output_path, 'WEBP', exif=new_exif_bytes)
+            else:
+                img.save(output_path, 'WEBP')
         print(f'Conversion successful. WebP image saved at: {output_path}')
     except Exception as e:
         print(f'Error converting image: {e}')
