@@ -85,6 +85,7 @@ def get_exif_orientation(img: Image):
         if exif_data:
             exif_dict = piexif.load(exif_data)
             orientation = exif_dict.get("0th", {}).get(piexif.ImageIFD.Orientation, None)
+            print(f"Orientation: {orientation}")
             return orientation
         else:
             print("No EXIF data found in the image.")
@@ -108,6 +109,7 @@ def convert_to_webp(input_path, output_path, is_horizontal):
         with Image.open(input_path) as img:
             exit_orientation = get_exif_orientation(img)
             if exit_orientation == 8 and not is_horizontal:
+                print("ROTATING")
                 img = rotate_photo(img=img)
             img.save(output_path, 'WEBP')
         print(f'Conversion successful. WebP image saved at: {output_path}')
