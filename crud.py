@@ -1,15 +1,17 @@
 import os
 import boto3
 import shutil
+from io import BytesIO
+
 import piexif
 from PIL import Image, ImageOps
-from tempfile import NamedTemporaryFile
+from tempfile import _TemporaryFileWrapper, NamedTemporaryFile
 from dotenv import load_dotenv
 from typing import List
 from botocore.exceptions import NoCredentialsError
 from sqlalchemy.orm import Session
 from fastapi import File, HTTPException, UploadFile
-from io import BytesIO
+
 import models
 
 load_dotenv()
@@ -38,7 +40,6 @@ def save_photo_on_bucket(local_file_path, filename):
     s3 = create_s3_client()
     bucket_name = os.getenv('s3_bucket_name')
     s3_url = os.getenv('s3_url')
-
     try:
         s3.upload_file(local_file_path, bucket_name, filename)
         print("Upload Successful")
@@ -57,8 +58,6 @@ def photo_is_horizontal(image: UploadFile):
         with Image.open(image) as img:
             pil = ImageOps.exif_transpose(img)
             width, height = pil.size
-            print(f"Witdh: {width}")
-            print(f"Height: {height}")
             return width > height
     except Exception as e:
         print(f"Error: {e}")
@@ -74,7 +73,6 @@ def add_photo_to_db(db: Session, photo_url: str, photo_name: str, photo_orientat
     return db_photo
 
 
-
 def get_webp_file_name(filename: str):
     return os.path.splitext(filename)[0] + '.webp'
 
@@ -85,7 +83,6 @@ def get_exif_orientation(img: Image):
         if exif_data:
             exif_dict = piexif.load(exif_data)
             orientation = exif_dict.get("0th", {}).get(piexif.ImageIFD.Orientation, None)
-            print(f"Orientation: {orientation}")
             return orientation
         else:
             print("No EXIF data found in the image.")
@@ -125,26 +122,35 @@ def convert_to_webp(input_path, output_path, is_horizontal):
         print(f'Error converting image: {e}')
 
 
+def convert_photo_to_webp(file: UploadFile, temp_file: _TemporaryFileWrapper[bytes]):
+    shutil.copyfileobj(file.file, temp_file)
+    local_file_path = temp_file.name
+    local_webp_path = get_webp_file_name(temp_file.name)
+    photo_orientation = photo_is_horizontal(image=local_file_path)
+    convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_orientation)
+    webp_name = get_webp_file_name(file.filename)
+    return local_file_path, local_webp_path, photo_orientation, webp_name
+
+def process_photo(file: UploadFile):
+    with NamedTemporaryFile(delete=False) as temp_file:
+            local_file_path, local_webp_path, photo_orientation, webp_name = convert_photo_to_webp(file, temp_file)
+            photo_url = save_photo_on_bucket(local_webp_path, webp_name)
+            os.remove(local_file_path)
+            os.remove(local_webp_path)
+            return photo_url, photo_orientation, webp_name
+
+
 def upload_photos(db: Session, files: List[UploadFile] = File(...)):
     db_files = []
     for file in files:
         try:
-            with NamedTemporaryFile(delete=False) as temp_file:
-                shutil.copyfileobj(file.file, temp_file)
-                local_file_path = temp_file.name
-                local_webp_path = get_webp_file_name(temp_file.name)
-                photo_orientation = photo_is_horizontal(image=local_file_path)
-                convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_orientation)
-                webp_name = get_webp_file_name(file.filename)
-                photo_url = save_photo_on_bucket(local_webp_path, webp_name)
-                os.remove(local_file_path)
-                os.remove(local_webp_path)
-                if photo_url is None:
-                    raise HTTPException(
-                        status_code=500, detail=f"Problem uploading file {file.filename}")
-                db_photo = add_photo_to_db(
-                    db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
-                db_files.append(db_photo)
+            photo_url, photo_orientation, webp_name = process_photo(file=file)
+            if photo_url is None:
+                raise HTTPException(
+                    status_code=500, detail=f"Problem uploading file {file.filename}")
+            db_photo = add_photo_to_db(
+                db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
+            db_files.append(db_photo)
         except Exception as e:
             print(f'Error uploading file {file.filename} {e}')
     return db_files
@@ -154,7 +160,6 @@ def delete_from_s3(filename: str):
     s3 = create_s3_client()
     bucket_name = os.getenv('s3_bucket_name')
     try:
-        # Delete the file
         s3.delete_object(Bucket=bucket_name, Key=filename)
         print(f"File deleted successfully: {filename}")
     except Exception as e:
@@ -179,4 +184,3 @@ def authenticate_user(user: str, password: str):
     registered_password = os.getenv("password")
     valid_credentials = user == registered_user and password == registered_password
     return valid_credentials
-

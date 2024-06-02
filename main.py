@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, Request, Form
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, Request, Form
 from sqlalchemy.orm import Session
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,7 +52,6 @@ def login_user(user: Annotated[str, Form()], password: Annotated[str, Form()], r
     if not user_authenticated:
         return templates.TemplateResponse("unauthorized.html", {"request": request})
     photos = get_all_photos(db=db)
-
     return templates.TemplateResponse("index.html", {
         "request": request,
         "user": user,
@@ -68,12 +67,15 @@ def get_all(db: Session = Depends(get_db)):
 
 
 @app.post("/upload-photos/", response_model=List[schemas.Photo])
-async def upload_photo(user: Annotated[str, Form()], password: Annotated[str, Form()], request: Request, files: List[UploadFile] = File(...),  db: Session = Depends(get_db)):
+async def upload_photo(user: Annotated[str, Form()],
+                        password: Annotated[str, Form()],
+                        background_tasks: BackgroundTasks,
+                        request: Request, files: List[UploadFile] = File(...), 
+                        db: Session = Depends(get_db)):
     user_authenticated = authenticate_user(user=user, password=password)
     if not user_authenticated:
         return templates.TemplateResponse("unauthorized.html", {"request": request})
-
-    upload_photos(db=db, files=files)
+    background_tasks.add_task(upload_photos, db, files)
     photos = get_all_photos(db=db)
     return templates.TemplateResponse("index.html", {
         "request": request,
