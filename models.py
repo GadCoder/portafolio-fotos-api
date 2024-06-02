@@ -8,5 +8,5 @@ class Photo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     is_horizontal = Column(Boolean)
-    photo_url = Column(String)
-    name = Column(String)
+    photo_url = Column(String(255))
+    name = Column(String(255))

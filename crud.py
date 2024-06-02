@@ -122,7 +122,7 @@ def convert_to_webp(input_path, output_path, is_horizontal):
         print(f'Error converting image: {e}')
 
 
-def convert_photo_to_webp(file: UploadFile, temp_file: _TemporaryFileWrapper[bytes]):
+def convert_photo_to_webp(file: UploadFile, temp_file: _TemporaryFileWrapper):
     shutil.copyfileobj(file.file, temp_file)
     local_file_path = temp_file.name
     local_webp_path = get_webp_file_name(temp_file.name)

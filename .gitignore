@@ -2,3 +2,5 @@
 venv
 photos.db
 .env
+
+mysql_data/
