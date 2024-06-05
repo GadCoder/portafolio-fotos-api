@@ -7,7 +7,7 @@ import piexif
 from PIL import Image, ImageOps
 from tempfile import _TemporaryFileWrapper, NamedTemporaryFile
 from dotenv import load_dotenv
-from typing import List
+from typing import BinaryIO, List
 from botocore.exceptions import NoCredentialsError
 from sqlalchemy.orm import Session
 from fastapi import File, HTTPException, UploadFile
@@ -122,38 +122,48 @@ def convert_to_webp(input_path, output_path, is_horizontal):
         print(f'Error converting image: {e}')
 
 
-def convert_photo_to_webp(file: UploadFile, temp_file: _TemporaryFileWrapper):
-    shutil.copyfileobj(file.file, temp_file)
-    local_file_path = temp_file.name
-    local_webp_path = get_webp_file_name(temp_file.name)
-    photo_orientation = photo_is_horizontal(image=local_file_path)
-    convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_orientation)
-    webp_name = get_webp_file_name(file.filename)
-    return local_file_path, local_webp_path, photo_orientation, webp_name
-
-def process_photo(file: UploadFile):
-    with NamedTemporaryFile(delete=False) as temp_file:
-            local_file_path, local_webp_path, photo_orientation, webp_name = convert_photo_to_webp(file, temp_file)
-            photo_url = save_photo_on_bucket(local_webp_path, webp_name)
-            os.remove(local_file_path)
-            os.remove(local_webp_path)
-            return photo_url, photo_orientation, webp_name
+def convert_photo_to_webp(filename: str, local_webp_path: str, local_file_path: str, photo_is_horizontal: bool):
+    convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_is_horizontal)
+    webp_name = get_webp_file_name(filename)
+    return webp_name
 
 
-def upload_photos(db: Session, files: List[UploadFile] = File(...)):
-    db_files = []
-    for file in files:
-        try:
-            photo_url, photo_orientation, webp_name = process_photo(file=file)
-            if photo_url is None:
-                raise HTTPException(
-                    status_code=500, detail=f"Problem uploading file {file.filename}")
-            db_photo = add_photo_to_db(
-                db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
-            db_files.append(db_photo)
-        except Exception as e:
-            print(f'Error uploading file {file.filename} {e}')
-    return db_files
+def check_if_file_is_webp(filename: str):
+    return filename.endswith('.webp')
+
+
+def process_photo(file_path: str, filename: str):
+    photo_orientation = photo_is_horizontal(image=file_path)
+    if check_if_file_is_webp(filename=filename):
+        photo_url = save_photo_on_bucket(local_file_path=file_path, filename=filename)
+        return photo_url, photo_orientation, filename
+
+    local_webp_path = get_webp_file_name(filename=file_path)
+    photo_orientation = photo_is_horizontal(image=file_path)
+    webp_name = convert_photo_to_webp(filename, local_webp_path=local_webp_path,
+                                    local_file_path= file_path,
+                                    photo_is_horizontal=photo_orientation)
+    photo_url = save_photo_on_bucket(local_webp_path, webp_name)
+    os.remove(local_webp_path)
+    os.remove(file_path)
+    return photo_url, photo_orientation, webp_name
+
+
+def upload_photo(db: Session, file_data: BinaryIO, filename: str):
+    try:
+        file_path = f"files/{filename}"
+        with open(file_path, 'w+b') as file:
+            shutil.copyfileobj(file_data, file)
+        photo_url, photo_orientation, webp_name = process_photo(file_path= file_path, filename=filename)
+        if photo_url is None:
+            raise HTTPException(
+                status_code=500, detail=f"Problem uploading file {file.filename}")
+        db_photo = add_photo_to_db(
+            db=db, photo_url=photo_url, photo_orientation=photo_orientation, photo_name=webp_name)
+    except Exception as e:
+        print(f'Error uploading file {file.filename} {e}')
+        raise HTTPException(
+            status_code=500, detail=f"Problem uploading file {file.filename}")
 
 
 def delete_from_s3(filename: str):

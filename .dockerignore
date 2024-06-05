@@ -2,5 +2,4 @@
 venv
 photos.db
 .env
-files\
 mysql_data/

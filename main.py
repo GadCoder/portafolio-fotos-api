@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from crud import upload_photos, get_all_photos, authenticate_user, delete_photo_from_db
+from crud import upload_photo, get_all_photos, authenticate_user, delete_photo_from_db
 from database import SessionLocal, engine
 import models
 import schemas
@@ -27,6 +27,7 @@ app = FastAPI()
 add_cors(app)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount('/files', StaticFiles(directory='files'), name='files')
 
 templates = Jinja2Templates(directory="templates")
 
@@ -67,15 +68,19 @@ def get_all(db: Session = Depends(get_db)):
 
 
 @app.post("/upload-photos/", response_model=List[schemas.Photo])
-async def upload_photo(user: Annotated[str, Form()],
+async def upload_photos(user: Annotated[str, Form()],
                         password: Annotated[str, Form()],
-                        background_tasks: BackgroundTasks,
-                        request: Request, files: List[UploadFile] = File(...), 
+                        request: Request,
+                        files: List[UploadFile], 
                         db: Session = Depends(get_db)):
     user_authenticated = authenticate_user(user=user, password=password)
     if not user_authenticated:
         return templates.TemplateResponse("unauthorized.html", {"request": request})
-    background_tasks.add_task(upload_photos, db, files)
+    
+    for file in files:
+        file_data = file.file
+        filename = file.filename
+        upload_photo(db=db, file_data=file_data, filename=filename)
     photos = get_all_photos(db=db)
     return templates.TemplateResponse("index.html", {
         "request": request,
