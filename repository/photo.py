@@ -63,7 +63,7 @@ def get_exif_orientation(img: Image):
         return None
     
 
-def rotate_photo(img: Image):
+def rotate_photo(img: Image) -> Image:
     try:
         rotated_img = img.rotate(90, expand=True)
         return rotated_img
@@ -72,20 +72,24 @@ def rotate_photo(img: Image):
         return None
 
 
+
+def get_new_exif_info(img: Image):
+    exif_dict = piexif.load(img.info["exif"])
+    exif_dict["0th"][piexif.ImageIFD.Orientation] = 1
+    new_exif_bytes = piexif.dump(exif_dict)
+    return new_exif_bytes
+
+
 def convert_to_webp(input_path, output_path, is_horizontal):
     try:
         with Image.open(input_path) as img:
             exit_orientation = get_exif_orientation(img)
-            image_rotated = False
-            if exit_orientation == 8 and not is_horizontal:
+            image_needs_rotation = exit_orientation == 8 and not is_horizontal
+            if image_needs_rotation:
                 print("ROTATING")
-                image_rotated = True
                 img = rotate_photo(img=img)
-            if image_rotated:
-                exif_dict = piexif.load(img.info["exif"])
-                exif_dict["0th"][piexif.ImageIFD.Orientation] = 1
-                new_exif_bytes = piexif.dump(exif_dict)
-                img.save(output_path, 'WEBP', exif=new_exif_bytes)
+                new_exif_info = get_new_exif_info(img)
+                img.save(output_path, 'WEBP', exif=new_exif_info)
             else:
                 img.save(output_path, 'WEBP')
         print(f'Conversion successful. WebP image saved at: {output_path}')
@@ -93,7 +97,7 @@ def convert_to_webp(input_path, output_path, is_horizontal):
         print(f'Error converting image: {e}')
 
 
-def convert_photo_to_webp(filename: str, local_webp_path: str, local_file_path: str, photo_is_horizontal: bool):
+def save_photo_locally(filename: str, local_webp_path: str, local_file_path: str, photo_is_horizontal: bool):
     convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_is_horizontal)
     webp_name = get_webp_file_name(filename)
     return webp_name
@@ -111,10 +115,10 @@ def process_photo(file_path: str, filename: str):
 
     local_webp_path = get_webp_file_name(filename=file_path)
     photo_orientation = photo_is_horizontal(image=file_path)
-    webp_name = convert_photo_to_webp(filename, local_webp_path=local_webp_path,
+    webp_name = save_photo_locally(filename, local_webp_path=local_webp_path,
                                     local_file_path= file_path,
                                     photo_is_horizontal=photo_orientation)
-    # photo_url = save_photo_on_bucket(local_webp_path, webp_name)
+    photo_url = save_photo_on_bucket(local_webp_path, webp_name)
     photo_url = ""
     os.remove(local_webp_path)
     os.remove(file_path)
@@ -138,8 +142,6 @@ def upload_photo(db: Session, file_data: BinaryIO, filename: str):
         print(f'Error uploading file {file.filename} {e}')
         raise HTTPException(
             status_code=500, detail=f"Problem uploading file {file.filename}")
-
-
 
 
 def delete_photo_from_db(db: Session, photo_id: int):
