@@ -1,16 +1,17 @@
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile, Request, Form
-from sqlalchemy.orm import Session
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from crud import upload_photo, get_all_photos, authenticate_user, delete_photo_from_db
-from database import SessionLocal, engine
-import models
-import schemas
-from typing import Annotated, List
 
-models.Base.metadata.create_all(bind=engine)
+from db.session import engine, Base
+from apis.base import api_router
 
+
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+
+
+def include_router(app):
+    app.include_router(api_router)
 
 def add_cors(app):
     origins = ["*"]
@@ -23,75 +24,15 @@ def add_cors(app):
     )
 
 
-app = FastAPI()
-add_cors(app)
+def start_application():
+    app = FastAPI()
+    create_tables()
+    include_router(app)
+    add_cors(app)
+    return app
+
+
+app = start_application()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount('/files', StaticFiles(directory='files'), name='files')
-
-templates = Jinja2Templates(directory="templates")
-
-# Dependency
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@app.get("/login-page")
-async def root(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-
-@app.post("/login-user/")
-def login_user(user: Annotated[str, Form()], password: Annotated[str, Form()], request: Request, db: Session = Depends(get_db)):
-    user_authenticated = authenticate_user(user=user, password=password)
-    if not user_authenticated:
-        return templates.TemplateResponse("unauthorized.html", {"request": request})
-    photos = get_all_photos(db=db)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "user": user,
-        "password": password,
-        "existing_photos": photos
-    })
-
-
-@app.get("/get-all-photos/", response_model=List[schemas.Photo])
-def get_all(db: Session = Depends(get_db)):
-    photos = get_all_photos(db=db)
-    return photos
-
-
-@app.post("/upload-photos/", response_model=List[schemas.Photo])
-async def upload_photos(user: Annotated[str, Form()],
-                        password: Annotated[str, Form()],
-                        request: Request,
-                        files: List[UploadFile], 
-                        db: Session = Depends(get_db)):
-    user_authenticated = authenticate_user(user=user, password=password)
-    if not user_authenticated:
-        return templates.TemplateResponse("unauthorized.html", {"request": request})
-    
-    for file in files:
-        file_data = file.file
-        filename = file.filename
-        upload_photo(db=db, file_data=file_data, filename=filename)
-    photos = get_all_photos(db=db)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "user": user,
-        "password": password,
-        "existing_photos": photos
-    })
-
-
-@app.delete("/delete-photo/{photo_id}")
-def delete_photo(photo_id: int, db: Session = Depends(get_db)):
-    return delete_photo_from_db(db=db, photo_id=photo_id)
-
-

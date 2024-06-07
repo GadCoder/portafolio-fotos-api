@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String
 
-from database import Base
+from db.session import Base
 
 
 class Photo(Base):
