@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Form, Request, UploadFile, Depends
+from fastapi import APIRouter, Form, Request, UploadFile, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Annotated, List
 
@@ -25,6 +25,7 @@ async def upload_photos(user: Annotated[str, Form()],
                         password: Annotated[str, Form()],
                         request: Request,
                         files: List[UploadFile], 
+                        background_tasks: BackgroundTasks,
                         db: Session = Depends(get_db)):
     user_authenticated = authenticate_user(user=user, password=password)
     if not user_authenticated:
@@ -33,7 +34,7 @@ async def upload_photos(user: Annotated[str, Form()],
     for file in files:
         file_data = await file.read()
         filename = file.filename
-        upload_photo(db=db, file=file_data, filename=filename)
+        background_tasks.add_task(upload_photo, db=db, file=file_data, filename=filename)
     photos = get_all_photos(db=db)
     return get_main_page(context={ 
         "request": request, 

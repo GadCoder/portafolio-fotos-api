@@ -25,8 +25,9 @@ origins = [
     "http://localhost",
     "http://localhost:8080",
     "https://portfolio-api.gadsw.dev",
-    "http://portfolio-api.gadsw.dev"
-
+    "http://portfolio-api.gadsw.dev",
+    "https://photos.gadcoder.com",
+    "http://photos.gadcoder.com",
     ]
 
 app = start_application()
