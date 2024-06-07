@@ -1,16 +1,15 @@
+import io
 import os
-import shutil
-
 import piexif
-from PIL import Image, ImageOps
-from dotenv import load_dotenv
 from typing import BinaryIO
 
-from fastapi import  HTTPException, UploadFile
+from dotenv import load_dotenv
+from PIL import Image, ImageOps
+
+from fastapi import  HTTPException
 from sqlalchemy.orm import Session
 
 from db.models.photo import Photo
-
 from repository.s3_bucket import save_photo_on_bucket, delete_from_s3
 
 
@@ -23,17 +22,6 @@ def get_photo(db: Session, photo_id: int):
 
 def get_all_photos(db: Session):
     return db.query(Photo).all()
-
-
-def photo_is_horizontal(image: UploadFile):
-    try:
-        with Image.open(image) as img:
-            pil = ImageOps.exif_transpose(img)
-            width, height = pil.size
-            return width > height
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
 
 
 def add_photo_to_db(db: Session, photo_url: str, photo_name: str, photo_orientation: bool):
@@ -72,7 +60,6 @@ def rotate_photo(img: Image) -> Image:
         return None
 
 
-
 def get_new_exif_info(img: Image):
     exif_dict = piexif.load(img.info["exif"])
     exif_dict["0th"][piexif.ImageIFD.Orientation] = 1
@@ -80,68 +67,65 @@ def get_new_exif_info(img: Image):
     return new_exif_bytes
 
 
-def convert_to_webp(input_path, output_path, is_horizontal):
+def convert_to_webp(file_data: io.BytesIO, is_horizontal: bool):
     try:
-        with Image.open(input_path) as img:
+        with Image.open(file_data) as img:
             exit_orientation = get_exif_orientation(img)
             image_needs_rotation = exit_orientation == 8 and not is_horizontal
+            webp_stream = io.BytesIO()
             if image_needs_rotation:
-                print("ROTATING")
-                img = rotate_photo(img=img)
-                new_exif_info = get_new_exif_info(img)
-                img.save(output_path, 'WEBP', exif=new_exif_info)
+                rotated_image = rotate_photo(img=img)
+                new_exif_info = get_new_exif_info(img=rotated_image)
+                rotated_image.save(webp_stream, 'WEBP', optimize = True, quality = 85, exif=new_exif_info)
             else:
-                img.save(output_path, 'WEBP')
-        print(f'Conversion successful. WebP image saved at: {output_path}')
+                img.save(webp_stream, 'WEBP', optimize = True, quality = 85)
+            webp_stream.seek(0)
+            return webp_stream
     except Exception as e:
         print(f'Error converting image: {e}')
-
-
-def save_photo_locally(filename: str, local_webp_path: str, local_file_path: str, photo_is_horizontal: bool):
-    convert_to_webp(local_file_path, local_webp_path, is_horizontal=photo_is_horizontal)
-    webp_name = get_webp_file_name(filename)
-    return webp_name
 
 
 def check_if_file_is_webp(filename: str):
     return filename.endswith('.webp')
 
 
-def process_photo(file_path: str, filename: str):
-    photo_orientation = photo_is_horizontal(image=file_path)
-    if check_if_file_is_webp(filename=filename):
-        photo_url = save_photo_on_bucket(local_file_path=file_path, filename=filename)
-        return photo_url, photo_orientation, filename
-
-    local_webp_path = get_webp_file_name(filename=file_path)
-    photo_orientation = photo_is_horizontal(image=file_path)
-    webp_name = save_photo_locally(filename, local_webp_path=local_webp_path,
-                                    local_file_path= file_path,
-                                    photo_is_horizontal=photo_orientation)
-    photo_url = save_photo_on_bucket(local_webp_path, webp_name)
-    photo_url = ""
-    os.remove(local_webp_path)
-    os.remove(file_path)
-    return photo_url, photo_orientation, webp_name
-
-
-def upload_photo(db: Session, file_data: BinaryIO, filename: str):
+def photo_is_horizontal(file_data: io.BytesIO) -> bool:
     try:
-        file_path = f"files/{filename}"
-        with open(file_path, 'w+b') as file:
-            shutil.copyfileobj(file_data, file)
-        photo_url, photo_orientation, webp_name = process_photo(file_path= file_path, filename=filename)
+        with Image.open(file_data) as img:
+            pil = ImageOps.exif_transpose(img)
+            width, height = pil.size
+            return width > height
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+def process_photo(file_data: io.BytesIO, filename: str):
+    photo_orientation = photo_is_horizontal(file_data=file_data)
+    if check_if_file_is_webp(filename=filename):
+        photo_url = save_photo_on_bucket(file_data=file_data, filename=filename)
+        return photo_url, photo_orientation, filename
+    file_webp_name = get_webp_file_name(filename=filename)
+    webp_file = convert_to_webp(file_data=file_data, is_horizontal=photo_orientation)
+    photo_url = save_photo_on_bucket(file_data=webp_file, filename = filename)
+    return photo_url, photo_orientation, file_webp_name
+
+
+def upload_photo(db: Session, file: BinaryIO, filename: str):
+    try:
+        binary_stream = io.BytesIO(file)
+        photo_url, photo_orientation, webp_name = process_photo(file_data= binary_stream, filename=filename)
         if photo_url is None:
             raise HTTPException(
-                status_code=500, detail=f"Problem uploading file {file.filename}")
+                status_code=500, detail=f"Problem uploading file {filename}")
         add_photo_to_db(db=db, 
                         photo_url=photo_url, 
                         photo_orientation=photo_orientation,
                         photo_name=webp_name)
     except Exception as e:
-        print(f'Error uploading file {file.filename} {e}')
+        print(f'Error uploading file {filename} {e}')
         raise HTTPException(
-            status_code=500, detail=f"Problem uploading file {file.filename}")
+            status_code=500, detail=f"Problem uploading file {filename}")
 
 
 def delete_photo_from_db(db: Session, photo_id: int):

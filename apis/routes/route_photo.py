@@ -31,9 +31,9 @@ async def upload_photos(user: Annotated[str, Form()],
         return get_unauthorized_page(context={"request": request})
     
     for file in files:
-        file_data = file.file
+        file_data = await file.read()
         filename = file.filename
-        upload_photo(db=db, file_data=file_data, filename=filename)
+        upload_photo(db=db, file=file_data, filename=filename)
     photos = get_all_photos(db=db)
     return get_main_page(context={ 
         "request": request, 
