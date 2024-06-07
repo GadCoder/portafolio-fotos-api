@@ -102,7 +102,7 @@
     function uploadPhotos() {
       var form = document.getElementById("uploadForm");
       var formData = new FormData(form);
-      url = "https://portfolio-api.gadsw.dev/upload-photos/";
+      url = "https://portfolio-api.gadsw.dev/photo/upload-photos/";
       fetch(url, {
         method: "POST",
         headers: {
@@ -113,7 +113,7 @@
       });
     }
     function deletePhoto(photoId) {
-      url = "https://portfolio-api.gadsw.dev/delete-photo/" + photoId;
+      url = "https://portfolio-api.gadsw.dev/photo/delete-photo/" + photoId;
       fetch(url, {
         method: "DELETE", // Use 'POST', 'PUT', 'DELETE', etc., depending on your API
         headers: {
