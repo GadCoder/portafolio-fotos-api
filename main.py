@@ -13,26 +13,31 @@ def create_tables():
 def include_router(app):
     app.include_router(api_router)
 
-def add_cors(app):
-    origins = ["*"]
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
 
 def start_application():
     app = FastAPI()
     create_tables()
     include_router(app)
-    add_cors(app)
     return app
 
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "https://portfolio-api.gadsw.dev",
+    "http://portfolio-api.gadsw.dev"
+
+    ]
 
 app = start_application()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount('/files', StaticFiles(directory='files'), name='files')

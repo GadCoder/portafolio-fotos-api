@@ -102,14 +102,18 @@
     function uploadPhotos() {
       var form = document.getElementById("uploadForm");
       var formData = new FormData(form);
-      url = "https://photos-api.gadcoder.com/upload-photos/";
+      url = "https://portfolio-api.gadsw.dev/upload-photos/";
       fetch(url, {
         method: "POST",
+        headers: {
+          "accept": "application/json", 
+          "Content-Type": "multipart/form-data'"
+        },
         body: formData,
       });
     }
     function deletePhoto(photoId) {
-      url = "https://photos-api.gadcoder.com/delete-photo/" + photoId;
+      url = "https://portfolio-api.gadsw.dev/delete-photo/" + photoId;
       fetch(url, {
         method: "DELETE", // Use 'POST', 'PUT', 'DELETE', etc., depending on your API
         headers: {
