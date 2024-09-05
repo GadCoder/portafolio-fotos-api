@@ -1,4 +1,3 @@
-
 from fastapi.templating import Jinja2Templates
 from typing import Any
 
@@ -12,7 +11,7 @@ def get_login_page(context: dict[str, Any] | None):
 
 def get_main_page(context: dict[str, Any] | None):
     return templates.TemplateResponse("index.html", context=context)
-    
+
 
 def get_unauthorized_page(context: dict[str, Any] | None):
     return templates.TemplateResponse("unauthorized.html", context=context)

@@ -1,138 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portfolio - Admin</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
-      crossorigin="anonymous"
-    />
-    <link
-      href="{{ url_for('static', path='/styles/login.css') }}"
-      rel="stylesheet"
-    />
-    <link
-      href="{{ url_for('static', path='/styles/index.css') }}"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div class="container">
-      <div class="row">
-        <h2>Subir fotitos</h2>
-      </div>
-      <div class="row">
-        <form id="uploadForm" enctype="multipart/form-data">
-          <input type="hidden" id="user" name="user" value="{{ user }}" />
-          <input
-            type="hidden"
-            id="password"
-            name="password"
-            value="{{ password }}"
-          />
-          <input
-            class="form-control"
-            type="file"
-            id="files"
-            name="files"
-            accept="image/*"
-            multiple
-          />
-          <br />
-          <div class="row d-flex justify-content-center">
-            <button
-              type="button"
-              class="btn btn-primary login-btn"
-              onclick="uploadPhotos()"
-            >
-              Subir
-            </button>
-          </div>
-        </form>
-      </div>
-      <div class="row mt-4 mb-3">
-        <h2>Eliminar fotitos</h2>
-      </div>
-      <div class="row">
-        {% for photo in existing_photos %}
-        <div class="photo-container col-4 mb-3">
-          <div class="row mb-1">
-            <img src="{{ photo.photo_url }}" alt="" class="img-fluid" />
-          </div>
-          <div class="row d-flex justify-content-center">
-            <button
-              type="button"
-              class="btn btn-danger delete-button"
-              onclick="deletePhoto('{{photo.id}}')"
-            >
-              Eliminar
-            </button>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
 
-      <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div
-          id="liveToast"
-          class="toast"
-          role="alert"
-          aria-live="assertive"
-          aria-atomic="true"
-        >
-          <div class="toast-header">
-            <img src="..." class="rounded me-2" alt="..." />
-            <strong class="me-auto">Hello there</strong>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="toast"
-              aria-label="Close"
-            ></button>
-          </div>
-          <div class="toast-body">Foto eliminada con éxito</div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio - Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" />
+  <link href="{{ url_for('static', path='/styles/login.css') }}" rel="stylesheet" />
+  <link href="{{ url_for('static', path='/styles/index.css') }}" rel="stylesheet" />
+</head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <h2>Subir fotitos</h2>
+    </div>
+    <div class="row">
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="hidden" id="user" name="user" value="{{ user }}" />
+        <input type="hidden" id="password" name="password" value="{{ password }}" />
+        <input class="form-control" type="file" id="files" name="files" accept="image/*" multiple />
+        <br />
+        <div class="row d-flex justify-content-center">
+          <button type="button" class="btn btn-primary login-btn" onclick="uploadPhotos()">
+            Subir
+          </button>
         </div>
+      </form>
+    </div>
+    <div class="row mt-4 mb-3">
+      <h2>Eliminar fotitos</h2>
+    </div>
+    <div class="row">
+      {% for photo in existing_photos %}
+      <div class="photo-container col-4 mb-3">
+        <div class="row mb-1">
+          <img src="{{ photo.photo_url }}" alt="" class="img-fluid" />
+        </div>
+        <div class="row d-flex justify-content-center">
+          <button type="button" class="btn btn-danger delete-button"
+            onclick="deletePhoto('{{user}}', '{{password}}', '{{photo.id}}')">
+            Eliminar
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+      <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <img src="..." class="rounded me-2" alt="..." />
+          <strong class="me-auto">Hello there</strong>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">Foto eliminada con éxito</div>
       </div>
     </div>
-  </body>
-  <script>
-    function uploadPhotos() {
-      var form = document.getElementById("uploadForm");
-      var formData = new FormData(form);
-      url = "https://portfolio-api.gadsw.dev/photo/upload-photos/";
-      fetch(url, {
-        method: "POST",
-        body: formData,
-      });
-    }
-    function deletePhoto(photoId) {
-      url = "https://portfolio-api.gadsw.dev/photo/delete-photo/" + photoId;
-      fetch(url, {
-        method: "DELETE", // Use 'POST', 'PUT', 'DELETE', etc., depending on your API
-        headers: {
-          "Content-Type": "application/json", // Adjust content type if necessary
-          // You may need to include additional headers (e.g., authorization token)
-        },
-        // Include a request body if required (for 'POST', 'PUT', etc.)
-        // body: JSON.stringify({ key: 'value' }),
-      }).then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const toastLiveExample = document.getElementById("liveToast");
-        const toast = new bootstrap.Toast(toastLiveExample);
-        toast.show();
-      });
-      setTimeout(2000);
-      location.reload();
-    }
-  </script>
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
-    crossorigin="anonymous"
-  ></script>
+  </div>
+</body>
+<script>
+  function uploadPhotos() {
+    var form = document.getElementById("uploadForm");
+    var formData = new FormData(form);
+    url = "https://portfolio-api.gadsw.dev/photo/upload-photos/";
+    fetch(url, {
+      method: "POST",
+      body: formData,
+    });
+  }
+  function deletePhoto(photoId, user, password) {
+    url = `https://portfolio-api.gadsw.dev/photo/delete-photo/${user}${password}/${photoId}`;
+    fetch(url, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const toastLiveExample = document.getElementById("liveToast");
+      const toast = new bootstrap.Toast(toastLiveExample);
+      toast.show();
+    });
+    setTimeout(2000);
+    location.reload();
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+  integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
 </html>

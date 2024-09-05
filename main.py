@@ -14,12 +14,12 @@ def include_router(app):
     app.include_router(api_router)
 
 
-
 def start_application():
     app = FastAPI()
     create_tables()
     include_router(app)
     return app
+
 
 origins = [
     "http://localhost",
@@ -28,9 +28,10 @@ origins = [
     "http://portfolio-api.gadsw.dev",
     "https://photos.gadcoder.com",
     "http://photos.gadcoder.com",
-    ]
+]
 
 app = start_application()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,4 +42,3 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount('/files', StaticFiles(directory='files'), name='files')
