@@ -20,3 +20,5 @@ class Settings:
 
 
 settings = Settings()
+print("SETTINGS")
+print(settings.user)
