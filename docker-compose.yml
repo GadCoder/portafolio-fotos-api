@@ -10,20 +10,24 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolio}
     volumes:
       - pg_data:/var/lib/postgresql/data
+    networks:
+      - dokploy-network
 
   api:
     build: .
     restart: unless-stopped
     depends_on:
       - db
-    ports:
-      - "8080:8080"
     environment:
-      # SQLAlchemy URL (psycopg2)
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-portfolio}:${POSTGRES_PASSWORD:-portfolio}@db:5432/${POSTGRES_DB:-portfolio}
-      # App auth for protected endpoints
       user: ${APP_USER:-german}
       password: ${APP_PASSWORD:-barbas1213}
+    networks:
+      - dokploy-network
 
 volumes:
   pg_data:
+
+networks:
+  dokploy-network:
+    external: true
