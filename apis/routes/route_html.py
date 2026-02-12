@@ -27,11 +27,10 @@ def login_user(
     if not user_authenticated:
         return get_unauthorized_page(context={"request": request})
     photos = get_all_photos(db=db)
+    # FIX: Removed credentials from template context to prevent DOM exposure
     return get_main_page(
         context={
             "request": request,
-            "user": user,
-            "password": password,
             "existing_photos": photos,
         }
     )

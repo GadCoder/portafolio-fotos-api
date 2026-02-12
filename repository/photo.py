@@ -114,7 +114,8 @@ def process_photo(file_data: io.BytesIO, filename: str):
         return photo_url, photo_orientation, filename
     file_webp_name = get_webp_file_name(filename=filename)
     webp_file = convert_to_webp(file_data=file_data, is_horizontal=photo_orientation)
-    photo_url = save_photo_on_bucket(file_data=webp_file, filename=filename)
+    # FIX: Use file_webp_name when uploading to S3 (not original filename)
+    photo_url = save_photo_on_bucket(file_data=webp_file, filename=file_webp_name)
     return photo_url, photo_orientation, file_webp_name
 
 
