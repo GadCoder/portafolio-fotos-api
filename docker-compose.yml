@@ -1,33 +1,29 @@
-# Use root/example as user/password credentials
-version: '3.1'
-
-networks:
-  api_network:
-    external: false
+version: '3.8'
 
 services:
-  database:
-      container_name: database
-      image: mysql
-      restart: always
-      ports:
-        - "3307:3306"
-      volumes:
-        - ./mysql_data:/var/lib/mysql
-      environment:
-        MYSQL_ROOT_PASSWORD: "${MYSQL_PASSWORD}"
-        MYSQL_DATABASE: "${MYSQL_DATABASE}"
-
-      networks:
-        - api_network
-  api:
-    depends_on:
-      - database
-    build: .
-    container_name: api
-    ports:
-      - 8000:8000
+  db:
+    image: postgres:16
     restart: unless-stopped
-    networks:
-      - api_network
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-portfolio}
+      POSTGRES_USER: ${POSTGRES_USER:-portfolio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-portfolio}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
 
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    environment:
+      # SQLAlchemy URL (psycopg2)
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-portfolio}:${POSTGRES_PASSWORD:-portfolio}@db:5432/${POSTGRES_DB:-portfolio}
+      # App auth for protected endpoints
+      user: ${APP_USER:-german}
+      password: ${APP_PASSWORD:-barbas1213}
+
+volumes:
+  pg_data:
