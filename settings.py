@@ -15,10 +15,9 @@ class Settings:
     DATABASE_NAME = os.getenv("MYSQL_DATABASE", "your_database")
     DATABASE_URL = f"mysql+mysqlconnector://{DATABASE_USERNAME}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 
+    # Legacy user/password for basic auth (to be replaced with proper auth)
     user = os.getenv("user")
     password = os.getenv("password")
 
 
 settings = Settings()
-print("SETTINGS")
-print(settings.user)

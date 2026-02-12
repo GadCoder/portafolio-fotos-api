@@ -15,9 +15,11 @@ def include_router(app):
 
 
 def add_middleware(app):
+    # CORS: no wildcard with credentials - using empty origins list 
+    # since this is a same-origin app (HTML templates served from same origin)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["https://portfolio.gadsw.dev", "https://portfolio-api.gadsw.dev"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -31,7 +33,6 @@ def start_application():
     return app
 
 app = start_application()
-
 
 
 
