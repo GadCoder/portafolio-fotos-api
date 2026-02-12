@@ -1,6 +1,6 @@
-from typing import Annotated, List, Union
+from typing import Annotated, List
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Form, Request, UploadFile, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Form, Request, UploadFile, Depends, BackgroundTasks
 from db.session import get_db, SessionLocal
 from schemas.photo import Photo
 from repository.photo import get_all_photos, upload_photo, delete_photo_from_db

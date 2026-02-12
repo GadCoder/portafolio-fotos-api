@@ -6,8 +6,6 @@ from settings import settings
 # Use database URL from settings (supports MySQL via env config)
 SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 
-print(f"URL: {SQLALCHEMY_DATABASE_URL}")
-
 # MySQL connector doesn't need check_same_thread, SQLite does
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(
