@@ -3,3 +3,8 @@ venv
 photos.db
 .env
 mysql_data/
+**/__pycache__
+.venv
+venv
+.env
+*.py[cod]
