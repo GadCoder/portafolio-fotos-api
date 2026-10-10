@@ -8,6 +8,10 @@ dev:
 serve:
     uv run uvicorn main:app --host 0.0.0.0 --port 8080
 
+# Apply pending database migrations.
+migrate:
+    uv run alembic upgrade head
+
 # Install dependencies and refresh uv.lock when needed.
 install:
     uv sync

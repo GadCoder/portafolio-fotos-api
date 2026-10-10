@@ -33,7 +33,7 @@ def get_photo(db: Session, photo_id: int):
 
 
 def get_all_photos(db: Session):
-    return db.query(Photo).all()
+    return db.query(Photo).order_by(Photo.created_at.desc(), Photo.id.desc()).all()
 
 
 def get_photo_page(db: Session, page: int, page_size: int):
