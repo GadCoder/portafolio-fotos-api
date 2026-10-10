@@ -25,6 +25,11 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       IMAGE_MAX_PIXELS: ${IMAGE_MAX_PIXELS:-80000000}
+      s3_key: ${s3_key:?Set s3_key}
+      s3_secret_key: ${s3_secret_key:?Set s3_secret_key}
+      s3_endpoint: ${s3_endpoint:?Set s3_endpoint}
+      s3_bucket_name: ${s3_bucket_name:?Set s3_bucket_name}
+      s3_url: ${s3_url:?Set s3_url}
     networks:
       - dokploy-network
 

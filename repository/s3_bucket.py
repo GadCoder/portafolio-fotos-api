@@ -45,8 +45,7 @@ def save_photo_on_bucket(file_data: BinaryIO, filename: str):
             },
         )
         logger.info("Photo uploaded", extra={"object_key": filename})
-        s3_url = f"{s3_url}/{bucket_name}/{filename}"
-        return s3_url
+        return f"{s3_url.rstrip('/')}/{filename}"
     except FileNotFoundError:
         logger.exception(
             "Photo file was unavailable", extra={"object_key": filename}
