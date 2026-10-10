@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "API for a photo portfolio"
 requires-python = ">=3.11,<4.0"
 dependencies = [
+    "alembic",
     "boto3",
     "fastapi",
     "jinja2",
