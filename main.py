@@ -1,9 +1,18 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from db.session import engine, Base
 from apis.base import api_router
+
+SESSION_SECRET = os.getenv("SESSION_SECRET")
+if not SESSION_SECRET:
+    raise RuntimeError("SESSION_SECRET must be set")
+if not os.getenv("APP_USER") or not os.getenv("APP_PASSWORD_HASH"):
+    raise RuntimeError("APP_USER and APP_PASSWORD_HASH must be set")
 
 
 def create_tables():
@@ -15,6 +24,13 @@ def include_router(app):
 
 
 def add_middleware(app):
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=SESSION_SECRET,
+        session_cookie="portfolio_session",
+        same_site="lax",
+        https_only=os.getenv("COOKIE_SECURE", "true").lower() == "true",
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

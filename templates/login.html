@@ -32,6 +32,7 @@
       </div>
       <div class="row form-container">
         <form action="/login-user/" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
           <div class="row">
             <div class="mb-3">
               <label for="user" class="form-label">User</label>

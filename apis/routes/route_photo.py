@@ -1,11 +1,11 @@
 from typing import Annotated, List
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Form, Request, UploadFile, Depends, BackgroundTasks
+from fastapi import APIRouter, Form, Request, UploadFile, Depends, BackgroundTasks, Header, HTTPException
 from db.session import get_db
 from schemas.photo import Photo
 from repository.photo import get_all_photos, upload_photo, delete_photo_from_db
-from repository.user import authenticate_user
-from repository.html import get_unauthorized_page, get_main_page
+from repository.user import valid_csrf_token
+from repository.html import get_main_page
 
 
 router = APIRouter()
@@ -17,18 +17,18 @@ def get_all(db: Session = Depends(get_db)):
     return photos
 
 
-@router.post("/upload-photos/", response_model=List[Photo])
+@router.post("/upload-photos/")
 async def upload_photos(
-    user: Annotated[str, Form()],
-    password: Annotated[str, Form()],
     request: Request,
+    csrf_token: Annotated[str, Form()],
     files: List[UploadFile],
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
-    user_authenticated = authenticate_user(user=user, password=password)
-    if not user_authenticated:
-        return get_unauthorized_page(context={"request": request})
+    if not request.session.get("user"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not valid_csrf_token(request.session.get("csrf_token"), csrf_token):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
 
     for file in files:
         file_data = await file.read()
@@ -40,22 +40,21 @@ async def upload_photos(
     return get_main_page(
         context={
             "request": request,
-            "user": user,
-            "password": password,
+            "csrf_token": request.session["csrf_token"],
             "existing_photos": photos,
         }
     )
 
 
-@router.delete("/delete-photo/{user}/{password}/{photo_id}")
+@router.delete("/delete-photo/{photo_id}")
 def delete_photo(
     request: Request,
-    user: str,
-    password: str,
     photo_id: int,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
     db: Session = Depends(get_db),
 ):
-    user_authenticated = authenticate_user(user=user, password=password)
-    if not user_authenticated:
-        return get_unauthorized_page(context={"request": request})
+    if not request.session.get("user"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not valid_csrf_token(request.session.get("csrf_token"), csrf_token):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
     return delete_photo_from_db(db=db, photo_id=photo_id)

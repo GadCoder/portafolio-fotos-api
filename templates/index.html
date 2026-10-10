@@ -18,8 +18,7 @@
     </div>
     <div class="row">
       <form id="uploadForm" enctype="multipart/form-data">
-        <input type="hidden" id="user" name="user" value="{{ user }}" />
-        <input type="hidden" id="password" name="password" value="{{ password }}" />
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
         <input class="form-control" type="file" id="files" name="files" accept="image/*" multiple />
         <br />
         <div class="row d-flex justify-content-center">
@@ -40,7 +39,7 @@
         </div>
         <div class="row d-flex justify-content-center">
           <button type="button" class="btn btn-danger delete-button"
-            onclick="deletePhoto('{{user}}', '{{password}}', '{{photo.id}}')">
+            onclick="deletePhoto('{{photo.id}}')">
             Eliminar
           </button>
         </div>
@@ -64,18 +63,19 @@
   function uploadPhotos() {
     var form = document.getElementById("uploadForm");
     var formData = new FormData(form);
-    url = "https://portfolio-api.gadsw.dev/photo/upload-photos/";
+    url = "/photo/upload-photos/";
     fetch(url, {
       method: "POST",
       body: formData,
     });
   }
-  function deletePhoto(photoId, user, password) {
-    url = `https://portfolio-api.gadsw.dev/photo/delete-photo/${user}${password}/${photoId}`;
+  function deletePhoto(photoId) {
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    url = `/photo/delete-photo/${photoId}`;
     fetch(url, {
       method: "DELETE",
       headers: {
-        "Content-Type": "application/json"
+        "X-CSRF-Token": csrfToken
       },
     }).then((response) => {
       if (!response.ok) {
