@@ -13,80 +13,197 @@
 
 <body>
   <div class="container">
-    <div class="row">
-      <h2>Subir fotitos</h2>
+    <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+      <h1>Administrar fotos</h1>
+      <form action="/logout/" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+        <button type="submit" class="btn btn-outline-secondary">Cerrar sesión</button>
+      </form>
     </div>
+    <h2>Subir fotos</h2>
     <div class="row">
       <form id="uploadForm" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-        <input class="form-control" type="file" id="files" name="files" accept="image/*" multiple />
+        <input class="form-control" type="file" id="files" name="files" accept="image/jpeg,image/png,image/webp" multiple required />
         <br />
         <div class="row d-flex justify-content-center">
-          <button type="button" class="btn btn-primary login-btn" onclick="uploadPhotos()">
+          <button id="uploadButton" type="button" class="btn btn-primary login-btn" onclick="uploadPhotos()">
             Subir
           </button>
         </div>
+        <div id="uploadProgress" class="progress mt-3 d-none" role="progressbar" aria-label="Progreso de carga" aria-valuemin="0" aria-valuemax="100">
+          <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+        </div>
+        <p id="uploadStatus" class="mt-2" role="status" aria-live="polite"></p>
       </form>
     </div>
-    <div class="row mt-4 mb-3">
-      <h2>Eliminar fotitos</h2>
+    <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+      <h2 class="mb-0">Fotos</h2>
+      <span id="photoCount">{{ total_photos }} fotos</span>
     </div>
-    <div class="row">
+    <div id="photoGrid" class="row">
       {% for photo in existing_photos %}
-      <div class="photo-container col-4 mb-3">
+      <div class="photo-container col-12 col-sm-6 col-lg-4 mb-3" data-photo-id="{{ photo.id }}">
         <div class="row mb-1">
-          <img src="{{ photo.photo_url }}" alt="" class="img-fluid" />
+          {% set photo_path = photo.photo_url.replace('https://portfolio.cdn.gadcoder.com/', '') %}
+          <img
+            src="https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=70,format=auto,w=800/{{ photo_path }}"
+            srcset="https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=55,format=auto,w=400/{{ photo_path }} 400w,
+                    https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=70,format=auto,w=800/{{ photo_path }} 800w,
+                    https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=85,format=auto,w=1200/{{ photo_path }} 1200w"
+            sizes="(max-width: 575px) 100vw, (max-width: 991px) 50vw, 33vw"
+            alt="Preview of {{ photo.name }}"
+            class="img-fluid"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
         <div class="row d-flex justify-content-center">
           <button type="button" class="btn btn-danger delete-button"
-            onclick="deletePhoto('{{photo.id}}')">
+            onclick="deletePhoto('{{photo.id}}', this)">
             Eliminar
           </button>
         </div>
       </div>
       {% endfor %}
     </div>
+    {% if total_photos == 0 %}
+    <p id="emptyGallery">Todavía no hay fotos.</p>
+    {% endif %}
+    {% if total_pages > 1 %}
+    <nav class="d-flex justify-content-center align-items-center gap-3 my-4" aria-label="Paginación de fotos">
+      {% if page > 1 %}
+      <a class="btn btn-outline-primary" href="/admin-page?page={{ page - 1 }}">Anterior</a>
+      {% else %}
+      <button class="btn btn-outline-primary" disabled>Anterior</button>
+      {% endif %}
+      <span>Página {{ page }} de {{ total_pages }}</span>
+      {% if page < total_pages %}
+      <a class="btn btn-outline-primary" href="/admin-page?page={{ page + 1 }}">Siguiente</a>
+      {% else %}
+      <button class="btn btn-outline-primary" disabled>Siguiente</button>
+      {% endif %}
+    </nav>
+    {% endif %}
 
     <div class="toast-container position-fixed bottom-0 end-0 p-3">
-      <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+      <div id="liveToast" class="toast" role="status" aria-live="polite" aria-atomic="true">
         <div class="toast-header">
-          <img src="..." class="rounded me-2" alt="..." />
-          <strong class="me-auto">Hello there</strong>
+          <strong class="me-auto">Admin</strong>
           <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
-        <div class="toast-body">Foto eliminada con éxito</div>
+        <div id="toastMessage" class="toast-body"></div>
       </div>
     </div>
   </div>
 </body>
 <script>
-  function uploadPhotos() {
-    var form = document.getElementById("uploadForm");
-    var formData = new FormData(form);
-    url = "/photo/upload-photos/";
-    fetch(url, {
-      method: "POST",
-      body: formData,
-    });
+  function showToast(message, isError = false) {
+    const toastElement = document.getElementById("liveToast");
+    document.getElementById("toastMessage").textContent = message;
+    toastElement.classList.toggle("text-bg-danger", isError);
+    toastElement.classList.toggle("text-bg-success", !isError);
+    new bootstrap.Toast(toastElement, { delay: 3500 }).show();
   }
-  function deletePhoto(photoId) {
-    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-    url = `/photo/delete-photo/${photoId}`;
-    fetch(url, {
-      method: "DELETE",
-      headers: {
-        "X-CSRF-Token": csrfToken
-      },
-    }).then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      const toastLiveExample = document.getElementById("liveToast");
-      const toast = new bootstrap.Toast(toastLiveExample);
-      toast.show();
+
+  function uploadPhotos() {
+    const form = document.getElementById("uploadForm");
+    const files = document.getElementById("files").files;
+    const button = document.getElementById("uploadButton");
+    const progress = document.getElementById("uploadProgress");
+    const progressBar = document.getElementById("uploadProgressBar");
+    const status = document.getElementById("uploadStatus");
+    if (!files.length) {
+      status.textContent = "Selecciona al menos una imagen.";
+      return;
+    }
+
+    if (files.length > 20) {
+      status.textContent = "Puedes subir hasta 20 imágenes a la vez.";
+      return;
+    }
+    const tooLarge = Array.from(files).find((file) => file.size > 50 * 1024 * 1024);
+    if (tooLarge) {
+      status.textContent = `${tooLarge.name} supera el límite de 50 MB.`;
+      return;
+    }
+    const totalSize = Array.from(files).reduce((sum, file) => sum + file.size, 0);
+    if (totalSize > 90 * 1024 * 1024) {
+      status.textContent = "El total de una subida no puede superar 90 MB.";
+      return;
+    }
+
+    const request = new XMLHttpRequest();
+    const formData = new FormData(form);
+    button.disabled = true;
+    status.textContent = `Subiendo ${files.length} archivo(s)…`;
+    progress.classList.remove("d-none");
+    progressBar.style.width = "0%";
+    progressBar.textContent = "0%";
+
+    request.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      progressBar.style.width = `${percent}%`;
+      progressBar.textContent = `${percent}%`;
+      progress.setAttribute("aria-valuenow", String(percent));
+      if (percent === 100) status.textContent = "Procesando y guardando las fotos…";
     });
-    setTimeout(2000);
-    location.reload();
+    request.addEventListener("load", () => {
+      button.disabled = false;
+      if (request.status < 200 || request.status >= 300) {
+        status.textContent = "No se pudieron subir las fotos. Inténtalo de nuevo.";
+        return;
+      }
+      let result;
+      try {
+        result = JSON.parse(request.responseText);
+      } catch (error) {
+        status.textContent = "El servidor devolvió una respuesta inválida.";
+        return;
+      }
+      if (!Array.isArray(result.results)) {
+        status.textContent = "El servidor devolvió una respuesta inválida.";
+        return;
+      }
+      const uploaded = result.results.filter((item) => item.success).length;
+      const failed = result.results.filter((item) => !item.success);
+      status.textContent = `${uploaded} subida(s), ${failed.length} con error.${failed.length ? ` ${failed.map((item) => item.filename + ": " + item.error).join("; ")}` : ""}`;
+      if (failed.length) {
+        showToast(failed.map((item) => `${item.filename}: ${item.error}`).join("; "), true);
+      } else {
+        showToast(`${uploaded} foto(s) subida(s) correctamente.`);
+      }
+      if (uploaded) setTimeout(() => window.location.assign("/admin-page?page=1"), 3000);
+    });
+    request.addEventListener("error", () => {
+      button.disabled = false;
+      status.textContent = "Error de conexión durante la subida.";
+    });
+    request.open("POST", "/photo/upload-photos/");
+    request.send(formData);
+  }
+
+  async function deletePhoto(photoId, button) {
+    if (!window.confirm("¿Eliminar esta foto? Esta acción no se puede deshacer.")) return;
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    button.disabled = true;
+    try {
+      const response = await fetch(`/photo/delete-photo/${photoId}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrfToken },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      button.closest(".photo-container").remove();
+      const countElement = document.getElementById("photoCount");
+      const count = Math.max(0, Number(countElement.textContent.match(/\d+/)?.[0] || 0) - 1);
+      countElement.textContent = `${count} fotos`;
+      showToast("Foto eliminada correctamente.");
+      setTimeout(() => window.location.reload(), 1100);
+    } catch (error) {
+      button.disabled = false;
+      showToast("No se pudo eliminar la foto. Inténtalo de nuevo.", true);
+    }
   }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"

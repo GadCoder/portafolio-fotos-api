@@ -1,11 +1,14 @@
-import io
+import logging
 import os
+from typing import BinaryIO
+
 import boto3
 from botocore.exceptions import NoCredentialsError
 
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 def create_s3_client():
@@ -24,21 +27,33 @@ def create_s3_client():
 s3_client = create_s3_client()
 
 
-def save_photo_on_bucket(file_data: io.BytesIO, filename: str):
+def save_photo_on_bucket(file_data: BinaryIO, filename: str):
     bucket_name = os.getenv("s3_bucket_name")
     s3_url = os.getenv("s3_url")
-    print(f"Uploading file {filename} to bucket {bucket_name}")
+    logger.info(
+        "Uploading photo to object storage", extra={"object_key": filename}
+    )
     try:
         file_data.seek(0)
-        s3_client.upload_fileobj(file_data, bucket_name, filename)
-        print("Upload Successful")
+        s3_client.upload_fileobj(
+            file_data,
+            bucket_name,
+            filename,
+            ExtraArgs={
+                "ContentType": "image/webp",
+                "CacheControl": "public, max-age=31536000, immutable",
+            },
+        )
+        logger.info("Photo uploaded", extra={"object_key": filename})
         s3_url = f"{s3_url}/{bucket_name}/{filename}"
         return s3_url
     except FileNotFoundError:
-        print("The file was not found")
+        logger.exception(
+            "Photo file was unavailable", extra={"object_key": filename}
+        )
         return None
     except NoCredentialsError:
-        print("Credentials not available")
+        logger.exception("Object storage credentials are unavailable")
         return None
 
 
@@ -46,6 +61,11 @@ def delete_from_s3(filename: str):
     bucket_name = os.getenv("s3_bucket_name")
     try:
         s3_client.delete_object(Bucket=bucket_name, Key=filename)
-        print(f"File deleted successfully: {filename}")
-    except Exception as e:
-        print(f"Error deleting file: {e}")
+        logger.info(
+            "Photo deleted from object storage", extra={"object_key": filename}
+        )
+    except Exception:
+        logger.exception(
+            "Photo deletion from object storage failed",
+            extra={"object_key": filename},
+        )
