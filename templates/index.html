@@ -47,10 +47,10 @@
         <div class="row mb-1">
           {% set photo_path = photo.photo_url.replace('https://portfolio.cdn.gadcoder.com/', '') %}
           <img
-            src="https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=70,format=auto,w=800/{{ photo_path }}"
-            srcset="https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=55,format=auto,w=400/{{ photo_path }} 400w,
-                    https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=70,format=auto,w=800/{{ photo_path }} 800w,
-                    https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=85,format=auto,w=1200/{{ photo_path }} 1200w"
+            src="https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=50,format=auto,w=800/{{ photo_path }}"
+            srcset="https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=50,format=auto,w=400/{{ photo_path }} 400w,
+                    https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=50,format=auto,w=800/{{ photo_path }} 800w,
+                    https://portfolio.cdn.gadcoder.com/cdn-cgi/image/quality=50,format=auto,w=1200/{{ photo_path }} 1200w"
             sizes="(max-width: 575px) 100vw, (max-width: 991px) 50vw, 33vw"
             alt="Preview of {{ photo.name }}"
             class="img-fluid"
