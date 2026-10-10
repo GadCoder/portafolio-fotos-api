@@ -1,6 +1,8 @@
 **/__pycache__
+.venv
 venv
+uv.lock.tmp
 photos.db
 .env
-files\
+files/
 mysql_data/

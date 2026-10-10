@@ -1,0 +1,20 @@
+[project]
+name = "portafolio-fotos-api"
+version = "0.1.0"
+description = "API for a photo portfolio"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "boto3",
+    "fastapi",
+    "jinja2",
+    "piexif",
+    "pillow",
+    "psycopg2-binary",
+    "python-dotenv",
+    "python-multipart",
+    "sqlalchemy",
+    "uvicorn[standard]",
+]
+
+[tool.uv]
+package = false

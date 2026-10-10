@@ -1,13 +1,16 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
-COPY requirements.txt /app/
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-dev --no-install-project
 
 COPY . /app
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8080
 
