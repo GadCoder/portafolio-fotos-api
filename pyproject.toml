@@ -7,7 +7,6 @@ dependencies = [
     "boto3",
     "fastapi",
     "jinja2",
-    "piexif",
     "pillow",
     "psycopg2-binary",
     "python-dotenv",
