@@ -12,6 +12,9 @@ The edit screen previews the photograph and loads its saved metadata. **Cancelar
 and **Volver a las fotos** return to the gallery page you came from. The admin
 gallery shows photo previews, featured badges, and edit/delete actions.
 
+Admin gallery/editor styles and the edit script use content-based URL versions
+so deployments request the current assets even when the CDN caches older files.
+
 `GET /photo/get-all-photos/` returns the existing image fields and optional
 `featured`, `featuredLayout`, `title`, `location`, `year`, `seriesSlug`, `width`,
 and `height`. Photo IDs and public sorting remain unchanged.
