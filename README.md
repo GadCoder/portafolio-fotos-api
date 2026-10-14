@@ -2,10 +2,15 @@
 
 ## Featured photographs
 
-Open `/admin-page`, select **Destacar fotografía** on an existing photo, choose
-the wide or contained layout, and save. Title, location, year, and series slug
+Open `/admin-page` and click **Editar** below a photo to open its dedicated edit
+screen. Select **Destacar fotografía**, choose the wide or contained layout,
+and click **Guardar cambios**. Title, location, year, and series slug
 are optional. Unchecking the option restores the regular gallery presentation
 without removing the photo or clearing its captions.
+
+The edit screen previews the photograph and loads its saved metadata. **Cancelar**
+and **Volver a las fotos** return to the gallery page you came from. The admin
+gallery shows photo previews, featured badges, and edit/delete actions.
 
 `GET /photo/get-all-photos/` returns the existing image fields and optional
 `featured`, `featuredLayout`, `title`, `location`, `year`, `seriesSlug`, `width`,

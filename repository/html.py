@@ -17,6 +17,12 @@ def get_main_page(context: dict[str, Any]):
     )
 
 
+def get_photo_edit_page(context: dict[str, Any]):
+    return templates.TemplateResponse(
+        request=context["request"], name="photo_edit.html", context=context
+    )
+
+
 def get_unauthorized_page(context: dict[str, Any]):
     return templates.TemplateResponse(
         request=context["request"], name="unauthorized.html", context=context

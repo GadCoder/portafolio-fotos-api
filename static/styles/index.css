@@ -1,3 +1,127 @@
-.delete-button {
-  width: min-content;
+.photo-preview {
+  aspect-ratio: 3 / 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.photo-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  min-width: 0;
+}
+
+.photo-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex: 1;
+  font-size: 14px;
+  color: #777;
+}
+
+.photo-actions,
+.edit-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.photo-edit-page {
+  background: #f7f7f5;
+  color: #242424;
+}
+
+.edit-back-link {
+  display: inline-block;
+  color: #777;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.edit-back-link:hover {
+  color: #242424;
+}
+
+.edit-heading {
+  margin: 28px 0 32px;
+}
+
+.edit-heading h1 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  letter-spacing: -0.035em;
+}
+
+.edit-heading p {
+  color: #777;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.edit-preview {
+  margin: 0;
+}
+
+.edit-preview img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 72vh;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.edit-form {
+  background: #fff;
+  padding: 28px;
+  border-radius: 4px;
+}
+
+.edit-form h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.edit-form .form-label,
+.edit-form .form-check-label,
+.edit-series summary {
+  font-size: 14px;
+}
+
+.edit-form .form-text {
+  color: #777;
+  line-height: 1.5;
+}
+
+.edit-series summary {
+  cursor: pointer;
+}
+
+.edit-status {
+  font-size: 14px;
+  margin-top: 16px;
+}
+
+@media (max-width: 575px) {
+  .edit-form {
+    padding: 20px;
+  }
+
+  .edit-heading {
+    margin: 24px 0;
+  }
+
+  .edit-preview img {
+    max-height: 50vh;
+  }
 }
