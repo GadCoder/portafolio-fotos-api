@@ -1,11 +1,11 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Form, Query, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from db.session import get_db
-from repository.html import get_login_page, get_main_page, get_unauthorized_page
+from repository.html import get_login_page, get_main_page, get_photo_edit_page, get_unauthorized_page
 from repository.user import authenticate_user, new_csrf_token, valid_csrf_token
-from repository.photo import get_photo_page
+from repository.photo import get_photo, get_photo_page
 
 
 router = APIRouter()
@@ -67,6 +67,26 @@ def admin_page(
     if not request.session.get("user"):
         return RedirectResponse(url="/login-page", status_code=303)
     return render_admin_page(request=request, db=db, page=page)
+
+
+@router.get("/admin-page/photos/{photo_id}/edit")
+def photo_edit_page(
+    request: Request,
+    photo_id: int,
+    page: Annotated[int, Query(ge=1)] = 1,
+    db: Session = Depends(get_db),
+):
+    if not request.session.get("user"):
+        return RedirectResponse(url="/login-page", status_code=303)
+    photo = get_photo(db, photo_id)
+    if photo is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return get_photo_edit_page(context={
+        "request": request,
+        "photo": photo,
+        "page": page,
+        "csrf_token": request.session["csrf_token"],
+    })
 
 
 @router.post("/logout/")
