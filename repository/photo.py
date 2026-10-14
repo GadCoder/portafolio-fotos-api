@@ -49,10 +49,12 @@ def get_photo_page(db: Session, page: int, page_size: int):
 
 
 def add_photo_to_db(
-    db: Session, photo_url: str, photo_name: str, photo_orientation: bool
+    db: Session, photo_url: str, photo_name: str, photo_orientation: bool,
+    width: int | None = None, height: int | None = None,
 ):
     db_photo = Photo(
-        is_horizontal=photo_orientation, photo_url=photo_url, name=photo_name
+        is_horizontal=photo_orientation, photo_url=photo_url, name=photo_name,
+        width=width, height=height,
     )
     db.add(db_photo)
     db.commit()
@@ -104,7 +106,7 @@ def convert_to_webp(file_data: BinaryIO):
             output.seek(0)
             result = output
             output = None
-            return result, photo_orientation
+            return result, photo_orientation, normalized_image.width, normalized_image.height
         except (
             UnidentifiedImageError,
             Image.DecompressionBombError,
@@ -124,7 +126,7 @@ def upload_photo(file: BinaryIO, filename: str):
     stored_name = get_webp_file_name(filename)
     uploaded_to_bucket = False
     try:
-        webp_file, photo_orientation = convert_to_webp(file_data=file)
+        webp_file, photo_orientation, width, height = convert_to_webp(file_data=file)
         try:
             photo_url = save_photo_on_bucket(file_data=webp_file, filename=stored_name)
         finally:
@@ -140,6 +142,8 @@ def upload_photo(file: BinaryIO, filename: str):
                 photo_url=photo_url,
                 photo_orientation=photo_orientation,
                 photo_name=os.path.basename(filename)[:255],
+                width=width,
+                height=height,
             )
         return stored_name
     except HTTPException:
@@ -155,6 +159,17 @@ def upload_photo(file: BinaryIO, filename: str):
         raise HTTPException(
             status_code=500, detail=f"Problem uploading file {filename}"
         )
+
+
+def update_photo_presentation(db: Session, photo_id: int, changes: dict):
+    photo = get_photo(db, photo_id)
+    if photo is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    for field, value in changes.items():
+        setattr(photo, field, value)
+    db.commit()
+    db.refresh(photo)
+    return photo
 
 
 def delete_photo_from_db(db: Session, photo_id: int):
