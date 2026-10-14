@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
 from db.session import get_db
-from schemas.photo import Photo
-from repository.photo import get_all_photos, upload_photo, delete_photo_from_db
+from schemas.photo import Photo, PhotoPresentationUpdate
+from repository.photo import get_all_photos, upload_photo, delete_photo_from_db, update_photo_presentation
 from repository.user import valid_csrf_token
 
 
@@ -81,6 +81,21 @@ async def upload_photos(
             continue
         results.append(await process_uploaded_file(file, filename))
     return {"results": results}
+
+
+@router.patch("/{photo_id}/presentation", response_model=Photo)
+def update_presentation(
+    photo_id: int,
+    presentation: PhotoPresentationUpdate,
+    request: Request,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+    db: Session = Depends(get_db),
+):
+    if not request.session.get("user"):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not valid_csrf_token(request.session.get("csrf_token"), csrf_token):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+    return update_photo_presentation(db, photo_id, presentation.model_dump(exclude_unset=True))
 
 
 @router.delete("/delete-photo/{photo_id}")

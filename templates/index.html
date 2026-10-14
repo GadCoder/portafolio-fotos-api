@@ -58,6 +58,27 @@
             decoding="async"
           />
         </div>
+        <form class="presentation-form my-3" data-photo-id="{{ photo.id }}" onsubmit="savePresentation(event, this)">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="featured" id="featured-{{ photo.id }}" {% if photo.featured %}checked{% endif %} />
+            <label class="form-check-label" for="featured-{{ photo.id }}">Destacar fotografía</label>
+          </div>
+          <label class="form-label" for="layout-{{ photo.id }}">Presentación destacada</label>
+          <select class="form-select mb-2" name="featuredLayout" id="layout-{{ photo.id }}">
+            <option value="wide" {% if photo.featured_layout != 'contained' %}selected{% endif %}>Ancho completo</option>
+            <option value="contained" {% if photo.featured_layout == 'contained' %}selected{% endif %}>Centrada (70%)</option>
+          </select>
+          <label class="form-label" for="title-{{ photo.id }}">Título (opcional)</label>
+          <input class="form-control mb-2" id="title-{{ photo.id }}" name="title" maxlength="255" value="{{ photo.title or '' }}" />
+          <label class="form-label" for="location-{{ photo.id }}">Lugar (opcional)</label>
+          <input class="form-control mb-2" id="location-{{ photo.id }}" name="location" maxlength="255" value="{{ photo.location or '' }}" />
+          <label class="form-label" for="year-{{ photo.id }}">Año (opcional)</label>
+          <input class="form-control mb-2" id="year-{{ photo.id }}" name="year" type="number" min="1" max="9999" step="1" value="{{ photo.year if photo.year is not none else '' }}" />
+          <label class="form-label" for="series-{{ photo.id }}">Identificador de serie (opcional)</label>
+          <input class="form-control mb-2" id="series-{{ photo.id }}" name="seriesSlug" maxlength="255" value="{{ photo.series_slug or '' }}" />
+          <button type="submit" class="btn btn-outline-primary">Guardar presentación</button>
+          <p class="presentation-status mt-2 mb-0" role="status" aria-live="polite"></p>
+        </form>
         <div class="row d-flex justify-content-center">
           <button type="button" class="btn btn-danger delete-button"
             onclick="deletePhoto('{{photo.id}}', this)">
@@ -203,6 +224,42 @@
     } catch (error) {
       button.disabled = false;
       showToast("No se pudo eliminar la foto. Inténtalo de nuevo.", true);
+    }
+  }
+
+  async function savePresentation(event, form) {
+    event.preventDefault();
+    const fields = new FormData(form);
+    const button = form.querySelector('button[type="submit"]');
+    const status = form.querySelector('.presentation-status');
+    const optionalText = (name) => fields.get(name).trim() || null;
+    const presentation = {
+      featured: fields.has('featured'),
+      featuredLayout: fields.get('featuredLayout'),
+      title: optionalText('title'),
+      location: optionalText('location'),
+      year: fields.get('year') ? Number(fields.get('year')) : null,
+      seriesSlug: optionalText('seriesSlug'),
+    };
+    button.disabled = true;
+    status.textContent = 'Guardando…';
+    try {
+      const response = await fetch(`/photo/${form.dataset.photoId}/presentation`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('input[name="csrf_token"]').value,
+        },
+        body: JSON.stringify(presentation),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      status.textContent = 'Presentación guardada.';
+      showToast('Presentación guardada. Se mostrará al abrir o recargar el portafolio.');
+    } catch (error) {
+      status.textContent = 'No se pudo guardar. Inténtalo de nuevo.';
+      showToast(status.textContent, true);
+    } finally {
+      button.disabled = false;
     }
   }
 </script>
