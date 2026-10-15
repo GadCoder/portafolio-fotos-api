@@ -1,9 +1,12 @@
-"""Read legacy dimensions from object storage; preview unless --apply is supplied."""
+"""Read legacy dimensions from R2 or public originals; preview unless --apply is supplied."""
 import argparse
 import io
 import os
 import tempfile
 from urllib.parse import unquote, urlparse
+from urllib.request import Request, urlopen
+
+from botocore.exceptions import ClientError
 
 from PIL import Image
 from sqlalchemy import or_
@@ -37,8 +40,8 @@ def dimensions(file):
         return width, height
 
 
-def stored_dimensions(photo_url):
-    options = {"Bucket": os.environ["s3_bucket_name"], "Key": object_key(photo_url)}
+def r2_dimensions(key):
+    options = {"Bucket": os.environ["s3_bucket_name"], "Key": key}
     response = s3_client.get_object(**options, Range=f"bytes=0-{HEADER_BYTES - 1}")
     try:
         header = response["Body"].read(HEADER_BYTES)
@@ -64,6 +67,54 @@ def stored_dimensions(photo_url):
                 return dimensions(file)
         finally:
             body.close()
+
+
+def object_keys(photo_url):
+    path = unquote(urlparse(photo_url).path).lstrip("/")
+    bucket_prefix = os.environ["s3_bucket_name"] + "/"
+    candidates = [object_key(photo_url), path]
+    if path.startswith(bucket_prefix):
+        candidates.append(path[len(bucket_prefix):])
+    # A public URL prefix can also be part of the actual object key.
+    return list(dict.fromkeys(candidates))
+
+
+def public_dimensions(photo_url):
+    parsed = urlparse(photo_url)
+    allowed_hosts = {"portfolio.cdn.gadcoder.com"}
+    configured_host = urlparse(os.getenv("s3_url", "")).hostname
+    if configured_host:
+        allowed_hosts.add(configured_host)
+    if (parsed.scheme != "https" or parsed.hostname not in allowed_hosts
+            or parsed.username is not None or parsed.password is not None
+            or parsed.port not in (None, 443)):
+        raise ValueError("Public original must use the configured HTTPS image host")
+    # Use the exact original URL, including its legacy prefix and extension.
+    request = Request(photo_url, headers={"User-Agent": "PortfolioPhotoMetadata/1.0"})
+    with urlopen(request, timeout=30) as response:
+        if int(response.headers.get("Content-Length", "0")) > MAX_BYTES:
+            raise ValueError("Image exceeds 50 MB")
+        with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as file:
+            size = 0
+            while chunk := response.read(64 * 1024):
+                size += len(chunk)
+                if size > MAX_BYTES:
+                    raise ValueError("Image exceeds 50 MB")
+                file.write(chunk)
+            file.seek(0)
+            return dimensions(file)
+
+
+def stored_dimensions(photo_url):
+    for key in object_keys(photo_url):
+        try:
+            return r2_dimensions(key)
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") not in {"NoSuchKey", "NotFound", "404"}:
+                raise
+    # Legacy URLs may point to public objects outside the currently configured bucket.
+    # The frontend already uses these originals to resolve build-time dimensions.
+    return public_dimensions(photo_url)
 
 
 def backfill(*, apply=False):

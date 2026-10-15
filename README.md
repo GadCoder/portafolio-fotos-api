@@ -107,7 +107,11 @@ uv run python -m scripts.backfill_photo_dimensions
 uv run python -m scripts.backfill_photo_dimensions --apply
 ```
 
-The command reads original object headers, accounts for EXIF orientation, skips
+The command tries both the URL-relative R2 key and the full URL path, preserving
+legacy folder prefixes. If all candidates return `NoSuchKey`, it reads the exact
+public original URL from the configured HTTPS image host instead. Authentication
+and other storage errors remain failures. Downloads are limited to 50 MB with a
+30-second timeout for public requests. The command accounts for EXIF orientation, skips
 records with valid dimensions, and saves successful results in one transaction.
 It exits nonzero if any image failed; rerun to retry those images. Applying a
 backfill also queues a build. New uploads already save normalized dimensions.
