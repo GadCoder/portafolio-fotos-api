@@ -24,10 +24,10 @@ from repository.admin_session import (
 from schemas.photo import Photo, PhotoPresentationUpdate
 from repository.photo import get_all_photos, update_photo_presentation, delete_photo_from_db, upload_photo
 from repository.user import authenticate_user, new_csrf_token, valid_csrf_token
+from repository.gallery_publication import request_gallery_publication as trigger_deploy
 from services.cloudflare_pages import (
     DeployHookError,
     DeployHookNotConfigured,
-    trigger_deploy,
 )
 
 router = APIRouter(prefix="/admin/api", tags=["admin-api"])

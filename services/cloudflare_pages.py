@@ -41,6 +41,14 @@ def _configured_hook_url() -> str:
     return hook_url
 
 
+def is_deploy_configured() -> bool:
+    try:
+        _configured_hook_url()
+    except DeployHookNotConfigured:
+        return False
+    return True
+
+
 def trigger_deploy() -> None:
     hook_url = _configured_hook_url()
     request = Request(hook_url, method="POST")
