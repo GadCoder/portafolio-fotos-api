@@ -24,6 +24,11 @@ from repository.admin_session import (
 from schemas.photo import Photo, PhotoPresentationUpdate
 from repository.photo import get_all_photos, update_photo_presentation, delete_photo_from_db, upload_photo
 from repository.user import authenticate_user, new_csrf_token, valid_csrf_token
+from services.cloudflare_pages import (
+    DeployHookError,
+    DeployHookNotConfigured,
+    trigger_deploy,
+)
 
 router = APIRouter(prefix="/admin/api", tags=["admin-api"])
 COOKIE = "portfolio_admin_session"
@@ -102,6 +107,22 @@ def logout(request: Request, response: Response, csrf: Annotated[str | None, Hea
     row = _require(request, db, csrf, state_changing=True)
     revoke_admin_session(db, row)
     response.delete_cookie(COOKIE, path="/", secure=SECURE, httponly=True, samesite="lax")
+
+
+@router.post("/deploy", status_code=202)
+def deploy(
+    request: Request,
+    csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+    db: Session = Depends(get_db),
+):
+    _require(request, db, csrf, state_changing=True)
+    try:
+        trigger_deploy()
+    except DeployHookNotConfigured:
+        raise HTTPException(503, "Cloudflare Pages deploy hook is not configured")
+    except DeployHookError:
+        raise HTTPException(502, "Could not request Cloudflare Pages deployment")
+    return {"status": "queued"}
 
 
 @router.get("/photos", response_model=list[Photo])

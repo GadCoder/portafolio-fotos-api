@@ -318,3 +318,50 @@ def test_admin_session_repository_removes_expired_tokens(client):
         )
         assert get_active_admin_session(db, token, now=now + timedelta(seconds=61)) is None
         assert db.query(AdminSession).count() == 0
+
+
+def test_admin_deploy_requires_auth_csrf_and_trusted_origin(client, monkeypatch):
+    import apis.routes.route_admin_api as admin_api
+
+    calls = []
+    monkeypatch.setattr(admin_api, "trigger_deploy", lambda: calls.append(True))
+    http = client[0]
+    assert http.post("/admin/api/deploy").status_code == 401
+
+    csrf = def_login(http).json()["csrf_token"]
+    assert http.post("/admin/api/deploy").status_code == 403
+    rejected = http.post(
+        "/admin/api/deploy",
+        headers={"X-CSRF-Token": csrf, "Origin": "https://attacker.example"},
+    )
+    assert rejected.status_code == 403
+    assert calls == []
+
+    response = http.post("/admin/api/deploy", headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 202
+    assert response.json() == {"status": "queued"}
+    assert calls == [True]
+
+
+def test_admin_deploy_reports_missing_hook_without_leaking_configuration(client, monkeypatch):
+    monkeypatch.delenv("CLOUDFLARE_PAGES_DEPLOY_HOOK_URL", raising=False)
+    http = client[0]
+    csrf = def_login(http).json()["csrf_token"]
+    response = http.post("/admin/api/deploy", headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Cloudflare Pages deploy hook is not configured"}
+
+
+def test_admin_deploy_hides_upstream_hook_details(client, monkeypatch):
+    import apis.routes.route_admin_api as admin_api
+
+    def fail():
+        raise admin_api.DeployHookError("https://api.cloudflare.com/secret-hook")
+
+    monkeypatch.setattr(admin_api, "trigger_deploy", fail)
+    http = client[0]
+    csrf = def_login(http).json()["csrf_token"]
+    response = http.post("/admin/api/deploy", headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 502
+    assert "secret-hook" not in response.text
+    assert response.json() == {"detail": "Could not request Cloudflare Pages deployment"}
