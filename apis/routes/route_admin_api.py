@@ -37,7 +37,8 @@ def _origin_check(request: Request):
     if origin:
         host = request.headers.get("host", "")
         expected = f"https://{host}" if request.url.scheme == "https" else f"http://{host}"
-        trusted_origins = {value.strip().rstrip("/") for value in os.getenv("PORTFOLIO_ORIGINS", "").split(",") if value.strip()}
+        from main import portfolio_origins
+        trusted_origins = set(portfolio_origins())
         if not hmac.compare_digest(origin.rstrip("/"), expected) and origin.rstrip("/") not in trusted_origins:
             raise HTTPException(403, "Cross-origin request rejected")
     elif request.headers.get("sec-fetch-site") == "cross-site":

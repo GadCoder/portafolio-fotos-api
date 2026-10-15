@@ -7,6 +7,14 @@ from fastapi.staticfiles import StaticFiles
 
 from apis.base import api_router
 
+DEFAULT_PORTFOLIO_ORIGIN = "https://portfolio.gadcoder.com"
+
+
+def portfolio_origins():
+    configured = os.getenv("PORTFOLIO_ORIGINS")
+    source = configured if configured is not None else DEFAULT_PORTFOLIO_ORIGIN
+    return [origin.strip().rstrip("/") for origin in source.split(",") if origin.strip()]
+
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 if not SESSION_SECRET:
     raise RuntimeError("SESSION_SECRET must be set")
@@ -28,7 +36,7 @@ def add_middleware(app):
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[origin.strip() for origin in os.getenv("PORTFOLIO_ORIGINS", "").split(",") if origin.strip()],
+        allow_origins=portfolio_origins(),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-CSRF-Token"],

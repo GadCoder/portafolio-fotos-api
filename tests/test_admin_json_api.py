@@ -68,12 +68,25 @@ def test_valid_login_returns_secure_contract_and_logout_revokes(client):
     session = http.get("/admin/api/session")
     assert session.json()["authenticated"] is True
     assert session.json()["csrf_token"] != csrf
-    assert http.post("/admin/api/logout", headers={"X-CSRF-Token": session.json()["csrf_token"]}).status_code == 204
+    logout = http.post("/admin/api/logout", headers={"X-CSRF-Token": session.json()["csrf_token"]})
+    assert logout.status_code == 204
+    assert logout.content == b""
+    cookie = logout.headers["set-cookie"].lower()
+    assert "portfolio_admin_session=" in cookie and "max-age=0" in cookie and "path=/" in cookie
     assert http.get("/admin/api/session").json()["authenticated"] is False
+    with client[1]() as db:
+        assert db.query(AdminSession).count() == 0
 
 
 def test_photos_requires_authentication(client):
     assert client[0].get("/admin/api/photos").status_code == 401
+
+
+def test_admin_mutations_require_authentication(client):
+    http = client[0]
+    assert http.post("/admin/api/photos/upload", files=[("files", ("a.jpg", b"x", "image/jpeg"))]).status_code == 401
+    assert http.delete("/admin/api/photos/1").status_code == 401
+    assert http.patch("/admin/api/photos/1/presentation", json={"title": "x"}).status_code == 401
 
 
 def test_photo_list_returns_canonical_photo_shape(client):
@@ -164,6 +177,50 @@ def test_upload_rejects_bad_image_with_safe_filename(client):
     assert result["filename"] == "image.jpg"
     assert result["success"] is False
     assert "error" in result
+
+
+def test_upload_success_calls_repository_and_returns_success(client, monkeypatch):
+    import apis.routes.route_admin_api as admin_api
+    calls = []
+    def save(file, name):
+        calls.append((file.read(), name))
+        return {"photo_url": "https://example.test/saved.jpg", "name": name, "width": 1, "height": 1, "is_horizontal": True}
+    monkeypatch.setattr(admin_api, "upload_photo", save)
+    http = client[0]
+    csrf = def_login(http).json()["csrf_token"]
+    response = http.post("/admin/api/photos/upload", files=[("files", ("valid.jpg", b"valid-test-image", "image/jpeg"))], headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 200
+    result = response.json()["results"][0]
+    assert len(calls) == 1 and calls[0] == (b"valid-test-image", "valid.jpg")
+    assert result["success"] is True
+    assert result["filename"] == "valid.jpg"
+
+
+def test_upload_per_file_and_batch_limits(client):
+    from apis.routes.route_photo import MAX_UPLOAD_BATCH_SIZE, MAX_UPLOAD_FILES, MAX_UPLOAD_SIZE
+    http = client[0]
+    csrf = def_login(http).json()["csrf_token"]
+    headers = {"X-CSRF-Token": csrf}
+    too_large = http.post("/admin/api/photos/upload", files=[("files", ("large.jpg", b"x" * (MAX_UPLOAD_SIZE + 1), "image/jpeg"))], headers=headers)
+    assert too_large.status_code == 200
+    assert too_large.json()["results"][0]["success"] is False
+    assert "error" in too_large.json()["results"][0]
+    batch = http.post("/admin/api/photos/upload", files=[("files", (f"{i}.jpg", b"x" * (MAX_UPLOAD_BATCH_SIZE // 2 + 1), "image/jpeg")) for i in range(2)], headers=headers)
+    assert batch.status_code == 413
+    assert set(batch.json()) == {"detail"}
+    count = http.post("/admin/api/photos/upload", files=[("files", (f"{i}.jpg", b"x", "image/jpeg")) for i in range(MAX_UPLOAD_FILES + 1)], headers=headers)
+    assert count.status_code == 400
+    assert set(count.json()) == {"detail"}
+
+
+def test_production_frontend_cors_origin_allowed_without_wildcard(client):
+    origin = "https://portfolio.gadcoder.com"
+    preflight = client[0].options("/admin/api/photos", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
+    assert preflight.headers.get("access-control-allow-origin") == origin
+    assert preflight.headers.get("access-control-allow-origin") != "*"
+    response = client[0].get("/admin/api/session", headers={"Origin": origin})
+    assert response.headers.get("access-control-allow-origin") == origin
+    assert response.headers.get("access-control-allow-origin") != "*"
 
 
 def test_delete_missing_photo_returns_not_found(client):
