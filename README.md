@@ -68,5 +68,48 @@ cookie bearer itself.
 
 The container runs migrations automatically on startup. Existing photos remain
 unfeatured and keep their original image metadata. New uploads also store their
-dimensions after EXIF orientation correction. The static portfolio refreshes
-photo data on each visit, so saved presentation changes appear after reloading.
+dimensions after EXIF orientation correction. The static portfolio reads
+photo data during deployment; see the publishing setup below.
+
+## Stable static gallery and automatic publishing
+
+The portfolio now includes image geometry and final responsive layouts in its
+static HTML/CSS. It reads this API at build time. A visitor no longer refreshes
+photo data while viewing the page. Saved edits appear after the next successful
+Cloudflare Pages deployment.
+
+Create a **production branch** deploy hook in the Pages project's **Settings →
+Builds → Deploy hooks**, following [Cloudflare's deploy hook guide](https://developers.cloudflare.com/pages/configuration/deploy-hooks/).
+Save its secret URL in the API's Dokploy Compose environment:
+
+```dotenv
+CLOUDFLARE_PAGES_DEPLOY_HOOK_URL=https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/REPLACE_WITH_SECRET_ID
+```
+
+Keep this setting on the API only. Deploy the API with migration `20261015_02`
+before deploying the frontend. The container applies migrations on startup.
+Uploads, edits and deletions update a durable publication revision in the same
+transaction as the photo change. The worker waits for 15 seconds without edits,
+then requests a build. Pending revisions survive restarts; failed hook requests
+retry every 60 seconds. Edits arriving during a hook request remain pending for
+a subsequent build. The admin’s **Deploy public gallery** button uses the same
+adapter and acknowledges pending edits when its immediate request succeeds,
+preventing a redundant automatic build for those edits. A successful hook request
+means a build was queued, not
+that Pages has completed deployment; check Pages for build failures. Without
+the setting, edits remain pending until a configured API process starts.
+
+Backfill legacy photos once, inside the API container with its existing database
+and R2 credentials. Preview first, then save:
+
+```sh
+uv run python -m scripts.backfill_photo_dimensions
+uv run python -m scripts.backfill_photo_dimensions --apply
+```
+
+The command reads original object headers, accounts for EXIF orientation, skips
+records with valid dimensions, and saves successful results in one transaction.
+It exits nonzero if any image failed; rerun to retry those images. Applying a
+backfill also queues a build. New uploads already save normalized dimensions.
+The frontend also resolves legacy dimensions during builds, so it can render
+stable images while this database backfill is pending.

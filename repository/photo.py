@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from db.models.photo import Photo
 from db.session import SessionLocal
 from repository.s3_bucket import save_photo_on_bucket, delete_from_s3
+from repository.gallery_publication import queue_gallery_publication
 
 
 load_dotenv()
@@ -57,6 +58,7 @@ def add_photo_to_db(
         width=width, height=height,
     )
     db.add(db_photo)
+    queue_gallery_publication(db)
     db.commit()
     db.refresh(db_photo)
 
@@ -167,6 +169,7 @@ def update_photo_presentation(db: Session, photo_id: int, changes: dict):
         raise HTTPException(status_code=404, detail="Photo not found")
     for field, value in changes.items():
         setattr(photo, field, value)
+    queue_gallery_publication(db)
     db.commit()
     db.refresh(photo)
     return photo
@@ -188,5 +191,6 @@ def delete_photo_from_db(db: Session, photo_id: int):
     )
     delete_from_s3(filename=object_key)
     db.delete(photo_db)
+    queue_gallery_publication(db)
     db.commit()
     return {"status": f"Photo  with id {photo_id} deleted"}

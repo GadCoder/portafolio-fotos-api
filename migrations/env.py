@@ -1,3 +1,4 @@
+from db.models.gallery_publication import GalleryPublication
 from logging.config import fileConfig
 
 from alembic import context

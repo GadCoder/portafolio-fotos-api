@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from apis.base import api_router
 from apis.config import portfolio_origins
+from repository.gallery_publication import publication_lifespan
 
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 if not SESSION_SECRET:
@@ -36,7 +37,7 @@ def add_middleware(app):
     )
     
 def start_application():
-    app = FastAPI()
+    app = FastAPI(lifespan=publication_lifespan)
     include_router(app)
     add_middleware(app)
     return app

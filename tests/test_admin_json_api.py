@@ -21,6 +21,8 @@ os.environ["COOKIE_SECURE"] = "false"
 
 from db.session import Base, get_db
 from db.models.photo import Photo
+from db.models.gallery_publication import GalleryPublication
+from datetime import datetime, timezone
 from db.models.admin_session import AdminSession
 from main import app
 
@@ -32,6 +34,9 @@ def client():
     )
     TestingSession = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     Base.metadata.create_all(engine)
+    with TestingSession() as db:
+        db.add(GalleryPublication(id=1, revision=0, requested_revision=0, changed_at=datetime.now(timezone.utc)))
+        db.commit()
 
     def override_db():
         db = TestingSession()
@@ -344,6 +349,8 @@ def test_admin_deploy_requires_auth_csrf_and_trusted_origin(client, monkeypatch)
 
 
 def test_admin_deploy_reports_missing_hook_without_leaking_configuration(client, monkeypatch):
+    from repository import gallery_publication
+    monkeypatch.setattr(gallery_publication, "SessionLocal", client[1])
     monkeypatch.delenv("CLOUDFLARE_PAGES_DEPLOY_HOOK_URL", raising=False)
     http = client[0]
     csrf = def_login(http).json()["csrf_token"]
