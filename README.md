@@ -42,6 +42,22 @@ uv sync --locked
 uv run alembic upgrade head
 ```
 
+The standalone admin JSON API is available under `/admin/api`. First call
+`GET /admin/api/session` to obtain a short-lived anonymous login CSRF value;
+send it in `X-CSRF-Token` with `POST /admin/api/login` and JSON `user` and
+`password`. Authenticated requests use the returned session CSRF value for
+logout, upload, presentation updates, and deletion. Session cookies are
+host-only, HttpOnly, SameSite=Lax, and Secure by default. Set `APP_ENV` explicitly to `local`, `dev`, `development`, `test`, or `testing`
+before `COOKIE_SECURE=false` can disable Secure; elsewhere cookies remain Secure.
+Configure `ADMIN_SESSION_MAX_AGE` (seconds,
+bounded to 60 seconds–7 days; default 8 hours), and `PORTFOLIO_ORIGINS` as a
+comma-separated allowlist for public read access. The cookie is intended to be
+proxied by a same-origin frontend/BFF; credentialed wildcard CORS is disabled.
+
+Apply Alembic migration `20261015_01` for persistent revocable sessions. The
+database stores only a SHA-256 digest of the opaque session cookie, never the
+cookie bearer itself.
+
 The container runs migrations automatically on startup. Existing photos remain
 unfeatured and keep their original image metadata. New uploads also store their
 dimensions after EXIF orientation correction. The static portfolio refreshes

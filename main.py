@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from apis.base import api_router
+from apis.config import portfolio_origins
 
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 if not SESSION_SECRET:
@@ -28,10 +29,10 @@ def add_middleware(app):
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=portfolio_origins(),
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-CSRF-Token"],
     )
     
 def start_application():

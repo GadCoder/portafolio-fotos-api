@@ -5,7 +5,6 @@ from sqlalchemy.orm import sessionmaker
 
 # Prefer DATABASE_URL. Fallback to SQLite file for dev.
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////app/photos.db")
-print(f"URL: {SQLALCHEMY_DATABASE_URL}")
 
 connect_args = {}
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
