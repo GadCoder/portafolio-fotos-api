@@ -4,6 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from db.models.photo import Photo  # noqa: F401
+from db.models.admin_session import AdminSession  # noqa: F401
 from db.session import Base, SQLALCHEMY_DATABASE_URL
 
 config = context.config
