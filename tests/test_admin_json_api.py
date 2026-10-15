@@ -16,6 +16,7 @@ os.environ.setdefault(
         hashlib.pbkdf2_hmac("sha256", b"correct-password", b"testsalt", 10000)
     ).decode(),
 )
+os.environ.setdefault("APP_ENV", "test")
 os.environ["COOKIE_SECURE"] = "false"
 
 from db.session import Base, get_db
@@ -236,3 +237,42 @@ def test_untrusted_origin_cannot_mutate(client):
     response = http.delete("/admin/api/photos/999", headers={"X-CSRF-Token": csrf, "Origin": "https://attacker.example"})
     assert response.status_code == 403
 
+def test_unexpected_upload_failure_is_reported_per_file_and_batch_continues(client, monkeypatch):
+    import apis.routes.route_admin_api as admin_api
+    calls = []
+    def save(file, name):
+        calls.append(name)
+        if name == "broken.jpg":
+            raise RuntimeError("sensitive backend detail")
+        return {"photo_url": "https://example.test/ok.jpg"}
+    monkeypatch.setattr(admin_api, "upload_photo", save)
+    http = client[0]
+    csrf = def_login(http).json()["csrf_token"]
+    response = http.post("/admin/api/photos/upload", files=[
+        ("files", ("broken.jpg", b"broken", "image/jpeg")),
+        ("files", ("ok.jpg", b"ok", "image/jpeg")),
+    ], headers={"X-CSRF-Token": csrf})
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert [item["success"] for item in results] == [False, True]
+    assert results[0]["filename"] == "broken.jpg"
+    assert "sensitive backend detail" not in response.text
+    assert calls == ["broken.jpg", "ok.jpg"]
+
+
+def test_cookie_secure_is_forced_outside_explicit_dev_or_test(monkeypatch):
+    import apis.routes.route_admin_api as admin_api
+    monkeypatch.setenv("COOKIE_SECURE", "false")
+    monkeypatch.setenv("APP_ENV", "production")
+    assert admin_api._secure_cookie_setting() is True
+    monkeypatch.setenv("APP_ENV", "test")
+    assert admin_api._secure_cookie_setting() is False
+    monkeypatch.setenv("APP_ENV", "dev")
+    assert admin_api._secure_cookie_setting() is False
+
+
+def test_cookie_secure_defaults_true(monkeypatch):
+    import apis.routes.route_admin_api as admin_api
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+    monkeypatch.delenv("APP_ENV", raising=False)
+    assert admin_api._secure_cookie_setting() is True

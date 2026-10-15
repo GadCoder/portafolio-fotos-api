@@ -47,8 +47,9 @@ The standalone admin JSON API is available under `/admin/api`. First call
 send it in `X-CSRF-Token` with `POST /admin/api/login` and JSON `user` and
 `password`. Authenticated requests use the returned session CSRF value for
 logout, upload, presentation updates, and deletion. Session cookies are
-host-only, HttpOnly, SameSite=Lax, and Secure by default. Configure
-`COOKIE_SECURE=false` only for local HTTP tests, `ADMIN_SESSION_MAX_AGE` (seconds,
+host-only, HttpOnly, SameSite=Lax, and Secure by default. Set `APP_ENV` explicitly to `local`, `dev`, `development`, `test`, or `testing`
+before `COOKIE_SECURE=false` can disable Secure; elsewhere cookies remain Secure.
+Configure `ADMIN_SESSION_MAX_AGE` (seconds,
 bounded to 60 seconds–7 days; default 8 hours), and `PORTFOLIO_ORIGINS` as a
 comma-separated allowlist for public read access. The cookie is intended to be
 proxied by a same-origin frontend/BFF; credentialed wildcard CORS is disabled.

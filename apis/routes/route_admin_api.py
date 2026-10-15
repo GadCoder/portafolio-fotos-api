@@ -21,7 +21,15 @@ router = APIRouter(prefix="/admin/api", tags=["admin-api"])
 COOKIE = "portfolio_admin_session"
 PREAUTH_COOKIE = "portfolio_admin_login_csrf"
 MAX_AGE = max(60, min(int(os.getenv("ADMIN_SESSION_MAX_AGE", "28800")), 604800))
-SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+def _secure_cookie_setting() -> bool:
+    requested = os.getenv("COOKIE_SECURE", "true").strip().lower() == "true"
+    environment = os.getenv("APP_ENV", "").strip().lower()
+    if environment not in {"local", "dev", "development", "test", "testing"}:
+        return True
+    return requested
+
+
+SECURE = _secure_cookie_setting()
 
 class LoginBody(BaseModel):
     user: str
@@ -136,6 +144,8 @@ async def upload(request: Request, files: list[UploadFile], csrf: Annotated[str 
                 results.append({"filename": name, "stored_name": stored, "success": True})
             except HTTPException as exc:
                 results.append({"filename": name, "success": False, "error": exc.detail})
+            except Exception:
+                results.append({"filename": name, "success": False, "error": "Upload failed"})
     return {"results": results}
 
 
