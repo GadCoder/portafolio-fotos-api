@@ -6,14 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from apis.base import api_router
-
-DEFAULT_PORTFOLIO_ORIGIN = "https://portfolio.gadcoder.com"
-
-
-def portfolio_origins():
-    configured = os.getenv("PORTFOLIO_ORIGINS")
-    source = configured if configured is not None else DEFAULT_PORTFOLIO_ORIGIN
-    return [origin.strip().rstrip("/") for origin in source.split(",") if origin.strip()]
+from apis.config import portfolio_origins
 
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 if not SESSION_SECRET:

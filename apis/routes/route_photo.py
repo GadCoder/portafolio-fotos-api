@@ -1,8 +1,14 @@
-import os
 from typing import Annotated, List
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Form, Header, HTTPException, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
+from apis.photo_upload import (
+    MAX_UPLOAD_BATCH_SIZE,
+    MAX_UPLOAD_FILES,
+    MAX_UPLOAD_SIZE,
+    get_upload_filename,
+    get_upload_size,
+)
 from db.session import get_db
 from schemas.photo import Photo, PhotoPresentationUpdate
 from repository.photo import get_all_photos, upload_photo, delete_photo_from_db, update_photo_presentation
@@ -10,24 +16,6 @@ from repository.user import valid_csrf_token
 
 
 router = APIRouter()
-MAX_UPLOAD_SIZE = 50 * 1024 * 1024
-MAX_UPLOAD_BATCH_SIZE = 90 * 1024 * 1024
-MAX_UPLOAD_FILES = 20
-
-
-def get_upload_filename(file: UploadFile) -> str:
-    return os.path.basename(
-        (file.filename or "unnamed image").replace("\\", "/")
-    ) or "unnamed image"
-
-
-def get_upload_size(file: UploadFile) -> int:
-    if file.size is not None:
-        return file.size
-    file.file.seek(0, os.SEEK_END)
-    size = file.file.tell()
-    file.file.seek(0)
-    return size
 
 
 async def process_uploaded_file(file: UploadFile, filename: str):

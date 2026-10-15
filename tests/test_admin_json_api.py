@@ -198,7 +198,7 @@ def test_upload_success_calls_repository_and_returns_success(client, monkeypatch
 
 
 def test_upload_per_file_and_batch_limits(client):
-    from apis.routes.route_photo import MAX_UPLOAD_BATCH_SIZE, MAX_UPLOAD_FILES, MAX_UPLOAD_SIZE
+    from apis.photo_upload import MAX_UPLOAD_BATCH_SIZE, MAX_UPLOAD_FILES, MAX_UPLOAD_SIZE
     http = client[0]
     csrf = def_login(http).json()["csrf_token"]
     headers = {"X-CSRF-Token": csrf}
@@ -276,3 +276,45 @@ def test_cookie_secure_defaults_true(monkeypatch):
     monkeypatch.delenv("COOKIE_SECURE", raising=False)
     monkeypatch.delenv("APP_ENV", raising=False)
     assert admin_api._secure_cookie_setting() is True
+
+
+def test_admin_session_repository_hashes_rotates_and_revokes_tokens(client):
+    from datetime import datetime, timezone
+    from repository.admin_session import (
+        create_admin_session,
+        get_active_admin_session,
+        revoke_admin_session,
+    )
+
+    _, factory = client
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with factory() as db:
+        first_token, first = create_admin_session(
+            db, user="admin", max_age_seconds=3600, now=now
+        )
+        assert first.token_hash != first_token
+        assert get_active_admin_session(db, first_token, now=now) is first
+
+        second_token, second = create_admin_session(
+            db, user="admin", max_age_seconds=3600, now=now
+        )
+        assert get_active_admin_session(db, first_token, now=now) is None
+        assert get_active_admin_session(db, second_token, now=now) is second
+        assert db.query(AdminSession).count() == 1
+
+        revoke_admin_session(db, second)
+        assert get_active_admin_session(db, second_token, now=now) is None
+
+
+def test_admin_session_repository_removes_expired_tokens(client):
+    from datetime import datetime, timedelta, timezone
+    from repository.admin_session import create_admin_session, get_active_admin_session
+
+    _, factory = client
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with factory() as db:
+        token, _ = create_admin_session(
+            db, user="admin", max_age_seconds=60, now=now
+        )
+        assert get_active_admin_session(db, token, now=now + timedelta(seconds=61)) is None
+        assert db.query(AdminSession).count() == 0

@@ -1,8 +1,5 @@
-import hashlib
 import hmac
 import os
-import secrets
-from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, UploadFile
@@ -10,12 +7,23 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from db.models.admin_session import AdminSession
 from db.session import get_db
+from apis.config import portfolio_origins
+from apis.photo_upload import (
+    MAX_UPLOAD_BATCH_SIZE,
+    MAX_UPLOAD_FILES,
+    MAX_UPLOAD_SIZE,
+    get_upload_filename,
+    get_upload_size,
+)
+from repository.admin_session import (
+    create_admin_session,
+    get_active_admin_session,
+    revoke_admin_session,
+)
 from schemas.photo import Photo, PhotoPresentationUpdate
 from repository.photo import get_all_photos, update_photo_presentation, delete_photo_from_db, upload_photo
-from repository.user import authenticate_user, valid_csrf_token
-from apis.routes.route_photo import MAX_UPLOAD_SIZE, MAX_UPLOAD_BATCH_SIZE, MAX_UPLOAD_FILES, get_upload_filename, get_upload_size
+from repository.user import authenticate_user, new_csrf_token, valid_csrf_token
 
 router = APIRouter(prefix="/admin/api", tags=["admin-api"])
 COOKIE = "portfolio_admin_session"
@@ -36,16 +44,11 @@ class LoginBody(BaseModel):
     password: str
 
 
-def _hash(value: str) -> str:
-    return hashlib.sha256(value.encode()).hexdigest()
-
-
 def _origin_check(request: Request):
     origin = request.headers.get("origin")
     if origin:
         host = request.headers.get("host", "")
         expected = f"https://{host}" if request.url.scheme == "https" else f"http://{host}"
-        from main import portfolio_origins
         trusted_origins = set(portfolio_origins())
         if not hmac.compare_digest(origin.rstrip("/"), expected) and origin.rstrip("/") not in trusted_origins:
             raise HTTPException(403, "Cross-origin request rejected")
@@ -54,21 +57,7 @@ def _origin_check(request: Request):
 
 
 def _active(request: Request, db: Session):
-    token = request.cookies.get(COOKIE)
-    if not token:
-        return None
-    row = db.query(AdminSession).filter(AdminSession.token_hash == _hash(token)).first()
-    now = datetime.now(timezone.utc)
-    if not row:
-        return None
-    expires = row.expires_at
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if expires <= now:
-        db.delete(row)
-        db.commit()
-        return None
-    return row
+    return get_active_admin_session(db, request.cookies.get(COOKIE))
 
 
 def _require(request, db, csrf=None, *, state_changing=False):
@@ -87,7 +76,7 @@ def session_info(request: Request, response: Response, db: Session = Depends(get
     row = _active(request, db)
     if row:
         return {"authenticated": True, "user": row.user, "csrf_token": row.csrf_token}
-    token = secrets.token_urlsafe(32)
+    token = new_csrf_token()
     response.set_cookie(PREAUTH_COOKIE, token, max_age=300, httponly=True, secure=SECURE, samesite="lax", path="/")
     return {"authenticated": False, "csrf_token": token}
 
@@ -100,21 +89,18 @@ def login(body: LoginBody, request: Request, response: Response, csrf: Annotated
         raise HTTPException(403, "Invalid CSRF token")
     if not authenticate_user(body.user, body.password):
         raise HTTPException(401, "Invalid credentials")
-    token, csrf_token = secrets.token_urlsafe(48), secrets.token_urlsafe(32)
-    db.query(AdminSession).filter(AdminSession.user == body.user).delete(synchronize_session=False)
-    now = datetime.now(timezone.utc)
-    db.add(AdminSession(token_hash=_hash(token), user=body.user, csrf_token=csrf_token, created_at=now, expires_at=now + timedelta(seconds=MAX_AGE)))
-    db.commit()
+    token, session = create_admin_session(
+        db, body.user, max_age_seconds=MAX_AGE
+    )
     response.set_cookie(COOKIE, token, max_age=MAX_AGE, httponly=True, secure=SECURE, samesite="lax", path="/")
     response.delete_cookie(PREAUTH_COOKIE, path="/")
-    return {"authenticated": True, "user": body.user, "csrf_token": csrf_token}
+    return {"authenticated": True, "user": body.user, "csrf_token": session.csrf_token}
 
 
 @router.post("/logout", status_code=204)
 def logout(request: Request, response: Response, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
     row = _require(request, db, csrf, state_changing=True)
-    db.delete(row)
-    db.commit()
+    revoke_admin_session(db, row)
     response.delete_cookie(COOKIE, path="/", secure=SECURE, httponly=True, samesite="lax")
 
 
