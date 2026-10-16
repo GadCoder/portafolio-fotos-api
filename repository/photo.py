@@ -14,9 +14,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from db.models.photo import Photo
+from db.models.series import Series
 from db.session import SessionLocal
 from repository.s3_bucket import save_photo_on_bucket, delete_from_s3
 from repository.gallery_publication import queue_gallery_publication
+from repository.series import sync_legacy_series_slug, validate_delete_photo
 
 
 load_dotenv()
@@ -164,11 +166,29 @@ def upload_photo(file: BinaryIO, filename: str):
 
 
 def update_photo_presentation(db: Session, photo_id: int, changes: dict):
-    photo = get_photo(db, photo_id)
+    observed = get_photo(db, photo_id)
+    if observed is None:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    observed_series_id = observed.series_id
+    requested_slug = changes.get("series_slug", ...)
+    series_ids = {sid for sid in (observed_series_id,) if sid is not None}
+    if requested_slug not in (..., None):
+        target_id = db.query(Series.id).filter(Series.slug == requested_slug).scalar()
+        if target_id is not None:
+            series_ids.add(target_id)
+    if series_ids:
+        db.query(Series).filter(Series.id.in_(series_ids)).order_by(Series.id).with_for_update().all()
+    photo = db.query(Photo).filter(Photo.id == photo_id).with_for_update().populate_existing().first()
     if photo is None:
         raise HTTPException(status_code=404, detail="Photo not found")
+    allowed_series_ids = series_ids | {None}
+    if photo.series_id not in allowed_series_ids:
+        raise HTTPException(status_code=409, detail="Photo membership changed; retry the update")
+    legacy_slug = changes.pop("series_slug", ...)
     for field, value in changes.items():
         setattr(photo, field, value)
+    if legacy_slug is not ...:
+        sync_legacy_series_slug(db, photo, legacy_slug)
     queue_gallery_publication(db)
     db.commit()
     db.refresh(photo)
@@ -176,11 +196,20 @@ def update_photo_presentation(db: Session, photo_id: int, changes: dict):
 
 
 def delete_photo_from_db(db: Session, photo_id: int):
-    photo_db = get_photo(db=db, photo_id=photo_id)
+    observed = get_photo(db, photo_id)
+    if not observed:
+        raise HTTPException(status_code=404, detail=f"Photo with id {photo_id} not founded")
+    observed_series_id = observed.series_id
+    if observed_series_id is not None:
+        db.query(Series).filter(Series.id == observed_series_id).with_for_update().first()
+    photo_db = db.query(Photo).filter(Photo.id == photo_id).with_for_update().populate_existing().first()
     if not photo_db:
         raise HTTPException(
             status_code=404, detail=f"Photo with id {photo_id} not founded"
         )
+    if photo_db.series_id != observed_series_id:
+        raise HTTPException(status_code=409, detail="Photo membership changed; retry the deletion")
+    validate_delete_photo(db, photo_db)
     bucket_name = os.getenv("s3_bucket_name", "")
     object_path = unquote(urlparse(photo_db.photo_url).path).lstrip("/")
     bucket_prefix = f"{bucket_name}/" if bucket_name else ""

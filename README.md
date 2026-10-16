@@ -4,8 +4,9 @@
 
 Open `/admin-page` and click **Editar** below a photo to open its dedicated edit
 screen. Select **Destacar fotografía**, choose the wide or contained layout,
-and click **Guardar cambios**. Title, location, year, and series slug
-are optional. Unchecking the option restores the regular gallery presentation
+and click **Guardar cambios**. Title, location, and series membership are
+optional. A supplied `seriesSlug` must reference an existing series.
+Unchecking the option restores the regular gallery presentation
 without removing the photo or clearing its captions.
 
 The edit screen previews the photograph and loads its saved metadata. **Cancelar**
@@ -16,31 +17,71 @@ Admin gallery/editor styles and the edit script use content-based URL versions
 so deployments request the current assets even when the CDN caches older files.
 
 `GET /photo/get-all-photos/` returns the existing image fields and optional
-`featured`, `featuredLayout`, `title`, `location`, `year`, `seriesSlug`, `width`,
-and `height`. Photo IDs and public sorting remain unchanged.
+`featured`, `featuredLayout`, `title`, `location`, `seriesSlug`,
+`seriesId`, `seriesPosition`, `showInPreview`, `previewPosition`, `width`, and
+`height`. Photo IDs and the existing photo endpoint sorting remain unchanged.
 
 `PATCH /photo/{photo_id}/presentation` accepts those presentation fields as
 JSON, requires an authenticated admin session and the `X-CSRF-Token` header,
 and returns the updated photo. Omitted fields are retained; nullable caption
 fields can be cleared with `null`. Layout accepts `wide`, `contained`, or `null`
-(the frontend defaults to wide). Year must be an integer from 1 to 9999.
+(the frontend defaults to wide).
 
 ```json
 {
   "featured": true,
   "featuredLayout": "contained",
   "title": "Costa",
-  "location": "Lima",
-  "year": 2026
+  "location": "Lima"
 }
 ```
 
-Apply migration `20261014_01` before running the updated application:
+Apply migrations through the current head before running the updated application:
 
 ```sh
 uv sync --locked
 uv run alembic upgrade head
 ```
+
+## Series API
+
+Migration `20261015_03` creates structured series and photo membership fields.
+It does not create series from the legacy `series_slug` field or assign any
+photos; all photos remain unassigned for the owner to curate in the admin.
+Migration `20261015_04` adds the optional year to each series and removes the
+old `photos.year` column. It does not copy photo-year values to series.
+
+Public `GET /series/` returns published series ordered by `position`, each with
+`id`, `slug`, `title`, `description`, `year`, `position`, `totalPhotos`,
+`previewPhotos`, and all ordered `photos`. `GET /series/{slug}/` returns the
+same object for one published series. Unpublished series return 404 on the
+detail route. Each photo includes `seriesId`, `seriesPosition`,
+`showInPreview`, and `previewPosition` alongside the existing photo fields.
+Series with up to five photos use all photos for `previewPhotos`; larger
+published series require one to five selected preview photos.
+
+Authenticated, Origin- and CSRF-protected admin endpoints are:
+
+- `GET /admin/api/series` lists drafts and published series with photos.
+- `POST /admin/api/series` creates metadata (`slug`, `title`, optional
+  `description`, `year`, `position`, and `published`). Omitted position appends it.
+- `PATCH /admin/api/series/{id}` updates those metadata fields.
+- `DELETE /admin/api/series/{id}` detaches member photos; it never deletes
+  photo records or image assets.
+- `PUT /admin/api/series/order` accepts `{"seriesIds":[...]}` and must include
+  every series ID exactly once.
+- `PUT /admin/api/series/{id}/photos` accepts `{"photoIds":[...]}` to replace
+  full membership and order. Photos already assigned to another series are
+  rejected.
+- `PUT /admin/api/series/{id}/preview` accepts `{"photoIds":[...]}` to replace
+  preview selection and order, with at most five unique IDs belonging to that
+  series.
+
+Publishing and every later edit must preserve the preview rule for series with
+more than five photos. The same check applies to photo membership edits,
+legacy `seriesSlug` presentation updates, and photo deletion. Public-facing
+series and photo mutations queue a durable gallery publication revision in the
+same database transaction. Run `uv run pytest` for the backend suite.
 
 The standalone admin JSON API is available under `/admin/api`. First call
 `GET /admin/api/session` to obtain a short-lived anonymous login CSRF value;
@@ -86,7 +127,7 @@ Save its secret URL in the API's Dokploy Compose environment:
 CLOUDFLARE_PAGES_DEPLOY_HOOK_URL=https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/REPLACE_WITH_SECRET_ID
 ```
 
-Keep this setting on the API only. Deploy the API with migration `20261015_02`
+Keep this setting on the API only. Deploy the API with migration `20261015_03`
 before deploying the frontend. The container applies migrations on startup.
 Uploads, edits and deletions update a durable publication revision in the same
 transaction as the photo change. The worker waits for 15 seconds without edits,

@@ -29,6 +29,8 @@ from services.cloudflare_pages import (
     DeployHookError,
     DeployHookNotConfigured,
 )
+from schemas.series import SeriesMetadata, SeriesUpdate, PhotoIds, SeriesOrder, AdminSeriesRead
+from repository import series as series_repository
 
 router = APIRouter(prefix="/admin/api", tags=["admin-api"])
 COOKIE = "portfolio_admin_session"
@@ -166,3 +168,48 @@ def presentation(photo_id: int, data: PhotoPresentationUpdate, request: Request,
 def delete(photo_id: int, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
     _require(request, db, csrf, state_changing=True)
     return delete_photo_from_db(db=db, photo_id=photo_id)
+
+
+@router.get("/series", response_model=list[AdminSeriesRead])
+def admin_series(request: Request, db: Session = Depends(get_db)):
+    _require(request, db)
+    return series_repository.list_series(db, admin=True)
+
+
+@router.post("/series", response_model=AdminSeriesRead)
+def create_series(data: SeriesMetadata, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
+    _require(request, db, csrf, state_changing=True)
+    return series_repository.create_series(db, data.model_dump())
+
+
+@router.patch("/series/{series_id}", response_model=AdminSeriesRead)
+def patch_series(series_id: int, data: SeriesUpdate, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
+    _require(request, db, csrf, state_changing=True)
+    changes = data.model_dump(exclude_unset=True)
+    if any(changes.get(field, object()) is None for field in ("slug", "title", "position", "published")):
+        raise HTTPException(422, "slug, title, position, and published cannot be null")
+    return series_repository.update_series(db, series_id, changes)
+
+
+@router.delete("/series/{series_id}")
+def remove_series(series_id: int, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
+    _require(request, db, csrf, state_changing=True)
+    return series_repository.delete_series(db, series_id)
+
+
+@router.put("/series/order", response_model=list[AdminSeriesRead])
+def put_series_order(data: SeriesOrder, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
+    _require(request, db, csrf, state_changing=True)
+    return series_repository.reorder_series(db, data.series_ids)
+
+
+@router.put("/series/{series_id}/photos", response_model=AdminSeriesRead)
+def put_series_photos(series_id: int, data: PhotoIds, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
+    _require(request, db, csrf, state_changing=True)
+    return series_repository.replace_members(db, series_id, data.photo_ids)
+
+
+@router.put("/series/{series_id}/preview", response_model=AdminSeriesRead)
+def put_series_preview(series_id: int, data: PhotoIds, request: Request, csrf: Annotated[str | None, Header(alias="X-CSRF-Token")] = None, db: Session = Depends(get_db)):
+    _require(request, db, csrf, state_changing=True)
+    return series_repository.replace_preview(db, series_id, data.photo_ids)
