@@ -4,8 +4,8 @@
 
 Open `/admin-page` and click **Editar** below a photo to open its dedicated edit
 screen. Select **Destacar fotografía**, choose the wide or contained layout,
-and click **Guardar cambios**. Title, location, year, and series membership
-are optional. A supplied `seriesSlug` must reference an existing series.
+and click **Guardar cambios**. Title, location, and series membership are
+optional. A supplied `seriesSlug` must reference an existing series.
 Unchecking the option restores the regular gallery presentation
 without removing the photo or clearing its captions.
 
@@ -17,7 +17,7 @@ Admin gallery/editor styles and the edit script use content-based URL versions
 so deployments request the current assets even when the CDN caches older files.
 
 `GET /photo/get-all-photos/` returns the existing image fields and optional
-`featured`, `featuredLayout`, `title`, `location`, `year`, `seriesSlug`,
+`featured`, `featuredLayout`, `title`, `location`, `seriesSlug`,
 `seriesId`, `seriesPosition`, `showInPreview`, `previewPosition`, `width`, and
 `height`. Photo IDs and the existing photo endpoint sorting remain unchanged.
 
@@ -25,19 +25,18 @@ so deployments request the current assets even when the CDN caches older files.
 JSON, requires an authenticated admin session and the `X-CSRF-Token` header,
 and returns the updated photo. Omitted fields are retained; nullable caption
 fields can be cleared with `null`. Layout accepts `wide`, `contained`, or `null`
-(the frontend defaults to wide). Year must be an integer from 1 to 9999.
+(the frontend defaults to wide).
 
 ```json
 {
   "featured": true,
   "featuredLayout": "contained",
   "title": "Costa",
-  "location": "Lima",
-  "year": 2026
+  "location": "Lima"
 }
 ```
 
-Apply migration `20261015_03` before running the updated application:
+Apply migrations through the current head before running the updated application:
 
 ```sh
 uv sync --locked
@@ -47,14 +46,13 @@ uv run alembic upgrade head
 ## Series API
 
 Migration `20261015_03` creates structured series and photo membership fields.
-It converts nonempty legacy `series_slug` values that are already lowercase
-URL-safe slugs into **draft** series, preserving their photo memberships and
-deterministic order. Invalid or ambiguous values are left untouched and logged
-for manual review. Photos without a legacy slug stay unassigned; migration does
-not create or assign a Street Photography series.
+It does not create series from the legacy `series_slug` field or assign any
+photos; all photos remain unassigned for the owner to curate in the admin.
+Migration `20261015_04` adds the optional year to each series and removes the
+old `photos.year` column. It does not copy photo-year values to series.
 
 Public `GET /series/` returns published series ordered by `position`, each with
-`id`, `slug`, `title`, `description`, `position`, `totalPhotos`,
+`id`, `slug`, `title`, `description`, `year`, `position`, `totalPhotos`,
 `previewPhotos`, and all ordered `photos`. `GET /series/{slug}/` returns the
 same object for one published series. Unpublished series return 404 on the
 detail route. Each photo includes `seriesId`, `seriesPosition`,
@@ -66,7 +64,7 @@ Authenticated, Origin- and CSRF-protected admin endpoints are:
 
 - `GET /admin/api/series` lists drafts and published series with photos.
 - `POST /admin/api/series` creates metadata (`slug`, `title`, optional
-  `description`, `position`, and `published`). Omitted position appends it.
+  `description`, `year`, `position`, and `published`). Omitted position appends it.
 - `PATCH /admin/api/series/{id}` updates those metadata fields.
 - `DELETE /admin/api/series/{id}` detaches member photos; it never deletes
   photo records or image assets.
