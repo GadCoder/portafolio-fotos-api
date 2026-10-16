@@ -104,7 +104,7 @@ def test_photo_list_returns_canonical_photo_shape(client):
         db.commit()
     response = http.get("/admin/api/photos")
     assert response.status_code == 200
-    assert set(response.json()[0]) == {"id", "is_horizontal", "photo_url", "name", "width", "height", "featured", "featuredLayout", "title", "location", "year", "seriesSlug", "created_at"}
+    assert set(response.json()[0]) == {"id", "is_horizontal", "photo_url", "name", "width", "height", "featured", "featuredLayout", "title", "location", "seriesSlug", "seriesId", "seriesPosition", "showInPreview", "previewPosition", "created_at"}
 
 
 def test_invalid_login_is_401(client):

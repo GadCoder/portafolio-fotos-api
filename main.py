@@ -32,7 +32,7 @@ def add_middleware(app):
         CORSMiddleware,
         allow_origins=portfolio_origins(),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-CSRF-Token"],
     )
     

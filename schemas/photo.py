@@ -11,7 +11,6 @@ class PhotoPresentation(BaseModel):
     featured_layout: Literal["wide", "contained"] | None = Field(None, alias="featuredLayout")
     title: str | None = Field(None, max_length=255)
     location: str | None = Field(None, max_length=255)
-    year: int | None = Field(None, ge=1, le=9999)
     series_slug: str | None = Field(None, alias="seriesSlug", max_length=255)
 
 
@@ -25,6 +24,10 @@ class PhotoBase(PhotoPresentation):
     name: str
     width: int | None = None
     height: int | None = None
+    series_id: int | None = Field(None, alias="seriesId")
+    series_position: int | None = Field(None, alias="seriesPosition")
+    show_in_preview: bool = Field(False, alias="showInPreview")
+    preview_position: int | None = Field(None, alias="previewPosition")
 
 
 class Photo(PhotoBase):
