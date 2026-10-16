@@ -58,7 +58,7 @@ same object for one published series. Unpublished series return 404 on the
 detail route. Each photo includes `seriesId`, `seriesPosition`,
 `showInPreview`, and `previewPosition` alongside the existing photo fields.
 Series with up to five photos use all photos for `previewPhotos`; larger
-published series require one to five selected preview photos.
+published series require one to six selected preview photos.
 
 Authenticated, Origin- and CSRF-protected admin endpoints are:
 
@@ -74,7 +74,7 @@ Authenticated, Origin- and CSRF-protected admin endpoints are:
   full membership and order. Photos already assigned to another series are
   rejected.
 - `PUT /admin/api/series/{id}/preview` accepts `{"photoIds":[...]}` to replace
-  preview selection and order, with at most five unique IDs belonging to that
+  preview selection and order, with at most six unique IDs belonging to that
   series.
 
 Publishing and every later edit must preserve the preview rule for series with

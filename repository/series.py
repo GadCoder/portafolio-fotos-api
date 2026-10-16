@@ -22,8 +22,8 @@ def validate_published_series(db: Session, series: Series, *, photos=None):
     photos = photos if photos is not None else ordered_photos(db, series.id)
     if len(photos) > 5:
         preview_count = sum(bool(photo.show_in_preview) for photo in photos)
-        if not 1 <= preview_count <= 5:
-            raise HTTPException(422, "A published series with more than five photos needs between one and five preview photos")
+        if not 1 <= preview_count <= 6:
+            raise HTTPException(422, "A published series with more than five photos needs between one and six preview photos")
 
 
 def _photo_data(photo):
@@ -174,8 +174,8 @@ def replace_preview(db: Session, series_id: int, photo_ids: list[int]):
     series = db.query(Series).filter(Series.id == series_id).with_for_update().first()
     if not series:
         raise HTTPException(404, "Series not found")
-    if len(photo_ids) > 5 or len(photo_ids) != len(set(photo_ids)):
-        raise HTTPException(422, "Preview must contain at most five unique photo IDs")
+    if len(photo_ids) > 6 or len(photo_ids) != len(set(photo_ids)):
+        raise HTTPException(422, "Preview must contain at most six unique photo IDs")
     photos = {p.id: p for p in ordered_photos(db, series_id)}
     if any(pid not in photos for pid in photo_ids):
         raise HTTPException(422, "Preview photos must belong to this series")
