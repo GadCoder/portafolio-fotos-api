@@ -114,8 +114,9 @@ def test_membership_rejects_stealing_preview_limit_and_duplicate_order(series_cl
     headers = {"X-CSRF-Token": csrf}
     first = http.post("/admin/api/series", json={"slug": "one", "title": "One", "position": 0}, headers=headers).json()
     second = http.post("/admin/api/series", json={"slug": "two", "title": "Two", "position": 1}, headers=headers).json()
-    assert http.put(f"/admin/api/series/{first['id']}/photos", json={"photoIds": ids[:6]}, headers=headers).status_code == 200
-    assert http.put(f"/admin/api/series/{first['id']}/preview", json={"photoIds": ids[:6]}, headers=headers).status_code == 422
+    assert http.put(f"/admin/api/series/{first['id']}/photos", json={"photoIds": ids[:7]}, headers=headers).status_code == 200
+    assert http.put(f"/admin/api/series/{first['id']}/preview", json={"photoIds": ids[:6]}, headers=headers).status_code == 200
+    assert http.put(f"/admin/api/series/{first['id']}/preview", json={"photoIds": ids[:7]}, headers=headers).status_code == 422
     assert http.put(f"/admin/api/series/{second['id']}/photos", json={"photoIds": [ids[0]]}, headers=headers).status_code == 409
     assert http.put("/admin/api/series/order", json={"seriesIds": [first["id"], first["id"]]}, headers=headers).status_code == 422
 
@@ -179,7 +180,7 @@ def test_publication_revision_changes_only_for_committed_public_edits(series_cli
     assert http.put(f"/admin/api/series/{sid}/photos", json={"photoIds": ids}, headers=headers).status_code == 200
     assert revision() == base + 1
     base = revision()
-    assert http.put(f"/admin/api/series/{sid}/preview", json={"photoIds": ids[:6]}, headers=headers).status_code == 422
+    assert http.put(f"/admin/api/series/{sid}/preview", json={"photoIds": ids[:7]}, headers=headers).status_code == 422
     assert revision() == base
     assert http.put(f"/admin/api/series/{sid}/preview", json={"photoIds": ids[:2]}, headers=headers).status_code == 200
     assert revision() == base + 1
